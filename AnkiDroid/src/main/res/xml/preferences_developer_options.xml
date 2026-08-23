@@ -123,6 +123,6 @@
             android:title="Bottom navigation bar"
             android:summary="Replaces the navigation drawer with a bottom nav bar"
             android:key="@string/dev_bottom_nav_key"
-            android:defaultValue="false"/>
+            android:defaultValue="true"/>
     </com.ichi2.anki.preferences.ExtendedPreferenceCategory>
 </PreferenceScreen>

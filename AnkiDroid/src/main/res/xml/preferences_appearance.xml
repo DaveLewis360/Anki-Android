@@ -55,6 +55,16 @@
             android:icon="@drawable/ic_dark_mode_24"
             app:useSimpleSummaryProvider="true"
             />
+        <ListPreference
+            android:defaultValue="@string/color_palette_blue_value"
+            android:entries="@array/color_palette_labels"
+            android:entryValues="@array/color_palette_values"
+            android:key="@string/color_palette_key"
+            android:title="@string/color_palette_title"
+            android:summary="@string/color_palette_summary"
+            android:icon="@drawable/ic_color_lens_white_24dp"
+            app:useSimpleSummaryProvider="true"
+            />
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/background_image_title" >
         <Preference
