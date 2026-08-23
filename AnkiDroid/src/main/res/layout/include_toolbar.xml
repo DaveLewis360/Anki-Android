@@ -6,9 +6,12 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_alignParentTop="true"
-    android:background="?attr/appBarColor"
+    android:background="?attr/colorSurface"
+    android:elevation="0dp"
     android:minHeight="?attr/actionBarSize"
     android:theme="@style/ActionBarStyle"
+    app:titleTextAppearance="@style/TextAppearance.AnkiDroid.Toolbar.Title"
+    app:titleTextColor="?attr/colorOnSurface"
     app:navigationContentDescription="@string/abc_action_bar_up_description"
     app:navigationIcon="?attr/homeAsUpIndicator">
 

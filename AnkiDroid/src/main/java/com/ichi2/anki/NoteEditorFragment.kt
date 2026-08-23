@@ -83,7 +83,6 @@ import com.ichi2.anki.common.preferences.sharedPrefs
 import com.ichi2.anki.common.ui.TransitionDirection
 import com.ichi2.anki.common.utils.HashUtil
 import com.ichi2.anki.common.utils.android.digit
-import com.ichi2.anki.common.utils.android.getColorFromAttr
 import com.ichi2.anki.common.utils.android.showThemedToast
 import com.ichi2.anki.common.utils.annotation.KotlinCleanup
 import com.ichi2.anki.common.utils.ext.ifZero
@@ -140,7 +139,6 @@ import com.ichi2.anki.previewer.TemplatePreviewerPage
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
 import com.ichi2.anki.servicelayer.NoteService
 import com.ichi2.anki.servicelayer.NoteService.convertToHtmlNewline
-import com.ichi2.anki.settings.enums.DayTheme
 import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
 import com.ichi2.anki.snackbar.showSnackbar
@@ -528,9 +526,7 @@ class NoteEditorFragment :
         savedInstanceState: Bundle?,
     ) {
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars =
-            Themes.currentTheme == DayTheme.EINK
-        @Suppress("deprecation", "API35 properly handle edge-to-edge")
-        requireActivity().window.statusBarColor = getColorFromAttr(requireContext(), CommonR.attr.appBarColor)
+            !Themes.isNightTheme
         super.onViewCreated(view, savedInstanceState)
         // Set up toolbar
         toolbar = view.findViewById(R.id.editor_toolbar)
@@ -540,14 +536,9 @@ class NoteEditorFragment :
                     val currentFocus = requireActivity().currentFocus as? FieldEditText ?: return@TextFormatListener
                     modifyCurrentSelection(formatter, currentFocus)
                 }
-            // Sets the background and icon color of toolbar respectively.
-            setBackgroundColor(
-                MaterialColors.getColor(
-                    requireContext(),
-                    R.attr.toolbarBackgroundColor,
-                    0,
-                ),
-            )
+            // Icon color only — the container background comes from the expressive
+            // toolbar drawable so the bar blends with the M3 surface instead of
+            // painting a legacy gray strip.
             setIconColor(MaterialColors.getColor(requireContext(), R.attr.toolbarIconColor, 0))
         }
         registerDeckSelectedHandler(REQUEST_DECK_SELECTION_NOTE_EDITOR, ::onDeckSelected)
@@ -564,10 +555,6 @@ class NoteEditorFragment :
             Timber.i("NoteEditor:: onBackPressed()")
             closeCardEditorWithCheck()
         }
-
-        @Suppress("deprecation", "API35 properly handle edge-to-edge")
-        requireActivity().window.navigationBarColor =
-            getColorFromAttr(requireContext(), R.attr.toolbarBackgroundColor)
 
         // Register this fragment as a menu provider with the activity
         (requireActivity() as MenuHost).addMenuProvider(

@@ -17,6 +17,10 @@
 package com.ichi2.anki
 
 import android.os.Bundle
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.commit
@@ -35,6 +39,7 @@ import com.ichi2.anki.snackbar.SnackbarBuilder
 import com.ichi2.anki.startup.ensureStorageIsReady
 import com.ichi2.anki.ui.ResizablePaneManager
 import com.ichi2.anki.utils.ext.doOnTabSelected
+import com.ichi2.themes.Themes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import timber.log.Timber
@@ -87,12 +92,29 @@ class NoteEditorActivity :
             return
         }
         super.onCreate(savedInstanceState)
+        // Fully transparent system bars so the editor matches the expressive UI
+        // (the default enableEdgeToEdge() draws a gray scrim behind the nav bar).
+        val systemBarStyle =
+            if (Themes.isNightTheme) {
+                SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            }
+        enableEdgeToEdge(statusBarStyle = systemBarStyle, navigationBarStyle = systemBarStyle)
         if (!ensureStorageIsReady()) {
             return
         }
 
         binding = ActivityNoteEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Draw behind the system bars so the editor matches the expressive UI;
+        // the toolbar and scroll content stay clear of the status/nav bars.
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(0, bars.top, 0, bars.bottom)
+            insets
+        }
 
         previewerFrame = binding.previewerFrame
         Timber.i("Note Editor is in %s mode", if (fragmented) "split" else "single-pane")

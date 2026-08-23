@@ -115,6 +115,8 @@
         <item name="android:textColorPrimary">?attr/actionBarTextColor</item>
         <!-- Colors: subtitle text -->
         <item name="android:textColorSecondary">?attr/actionBarTextColor</item>
+        <!-- Expressive title styling for support-action-bar titles -->
+        <item name="titleTextStyle">@style/TextAppearance.AnkiDroid.Toolbar.Title</item>
         <!-- Overflow menu style -->
         <item name="popupTheme">@style/ActionBar.Popup</item>
     </style>
@@ -234,6 +236,12 @@
     </style>
 
     <style name="TextAppearance.AnkiDroid.TopAppBar.Title" parent="TextAppearance.Material3.TitleMedium" />
+
+    <style name="TextAppearance.AnkiDroid.Toolbar.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
 
     <style name="TextAppearance.AnkiDroid.TopAppBar.Subtitle" parent="TextAppearance.Material3.ActionBar.Subtitle" />
 

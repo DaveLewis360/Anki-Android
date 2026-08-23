@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal"
-        android:padding="5dp"
+        android:padding="8dp"
         android:layout_marginBottom="@dimen/note_editor_toolbar_height">
 
         <LinearLayout
@@ -22,59 +22,90 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" >
 
-            <!-- Note type selector -->
-            <LinearLayout
+            <!-- Note type + deck selectors in a tonal section card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/CardEditorModelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:layout_marginLeft="8dip"
-                    android:layout_marginRight="8dip"
-                    android:clickable="false"
-                    android:gravity="start|center_vertical"
-                    android:textStyle="bold"
-                    android:text="@string/CardEditorModel" />
-                <Spinner
-                    android:id="@+id/note_type_spinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="?minTouchTargetSize"
-                    />
-            </LinearLayout>
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
 
-            <!-- Deck selector -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/CardEditorDeckText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:layout_marginLeft="8dip"
-                    android:layout_marginRight="8dip"
-                    android:clickable="false"
-                    android:gravity="start|center_vertical"
-                    android:textStyle="bold"
-                    android:text="@string/CardEditorNoteDeck" />
-                <!-- different horizontal padding to match note_type_spinner drop down alignment -->
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/note_deck_name"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="12dp"
-                    android:drawableEnd="@drawable/id_arrow_drop_down"
-                    android:background="?attr/selectableItemBackground"
-                    android:minHeight="?attr/listPreferredItemHeightSmall"
-                    android:gravity="center_vertical"
-                    tools:text="Deck name here"
-                    />
-            </LinearLayout>
+                    android:orientation="vertical">
+
+                    <!-- Note type row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="10dp" >
+                        <com.ichi2.ui.FixedTextView
+                            android:id="@+id/CardEditorModelText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginEnd="12dp"
+                            android:clickable="false"
+                            android:gravity="start|center_vertical"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:text="@string/CardEditorModel" />
+                        <Spinner
+                            android:id="@+id/note_type_spinner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="?minTouchTargetSize"
+                            />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginHorizontal="16dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Deck row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="10dp" >
+                        <com.ichi2.ui.FixedTextView
+                            android:id="@+id/CardEditorDeckText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginEnd="12dp"
+                            android:clickable="false"
+                            android:gravity="start|center_vertical"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:text="@string/CardEditorNoteDeck" />
+                        <!-- different horizontal padding to match note_type_spinner drop down alignment -->
+                        <com.ichi2.ui.FixedTextView
+                            android:id="@+id/note_deck_name"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="4dp"
+                            android:drawableEnd="@drawable/id_arrow_drop_down"
+                            android:background="?attr/selectableItemBackground"
+                            android:minHeight="?attr/listPreferredItemHeightSmall"
+                            android:gravity="center_vertical"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"
+                            android:textColor="?attr/colorOnSurface"
+                            tools:text="Deck name here"
+                            />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Front/Back/Attach views added in NoteEditor.populateEditFields(..) -->
             <LinearLayout
@@ -85,7 +116,7 @@
                 android:focusable="true"
                 android:animateLayoutChanges="true"
                 android:paddingVertical="@dimen/keyline_1"
-                android:paddingHorizontal="6dip" />
+                android:paddingHorizontal="16dp" />
 
             <LinearLayout
                 android:id="@+id/ImageOcclusionButtonsLayout"
@@ -155,22 +186,35 @@
                 android:layout_height="wrap_content"
                 tools:text="Tags: AnkiDroid"
                 android:gravity="start|center_vertical"
-                android:paddingStart="15dip"
-                android:paddingEnd="15dip"
-                android:elevation="50dip"
-                android:layout_marginBottom="5dp"
-                android:background="@drawable/button_background"/>
+                android:paddingStart="16dip"
+                android:paddingEnd="16dip"
+                android:minHeight="56dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="8dp"
+                android:drawableStart="@drawable/ic_tag"
+                android:drawablePadding="14dp"
+                android:drawableTint="?attr/colorOnSurfaceVariant"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:background="@drawable/bg_note_section"/>
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/CardEditorCardsButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 tools:text="Cards: Card 1"
                 android:gravity="start|center_vertical"
-                android:paddingStart="15dip"
-                android:paddingEnd="15dip"
-                android:elevation="50dip"
-                android:layout_marginBottom="5dp"
-                android:background="@drawable/button_background"/>
+                android:paddingStart="16dip"
+                android:paddingEnd="16dip"
+                android:minHeight="56dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="8dp"
+                android:drawableStart="@drawable/ic_cards_star"
+                android:drawablePadding="14dp"
+                android:drawableTint="?attr/colorOnSurfaceVariant"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:background="@drawable/bg_note_section"/>
         </LinearLayout>
     </ScrollView>
     <com.ichi2.anki.noteeditor.Toolbar
