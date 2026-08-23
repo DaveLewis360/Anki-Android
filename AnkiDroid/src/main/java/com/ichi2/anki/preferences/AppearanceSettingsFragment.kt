@@ -130,6 +130,11 @@ class AppearanceSettingsFragment : SettingsFragment() {
     }
 
     private fun setupThemePreferences() {
+        // Recreate the activity so the new color palette takes effect
+        requirePreference<ListPreference>(R.string.color_palette_key).setOnPreferenceChangeListener { _, _ ->
+            ActivityCompat.recreate(requireActivity())
+            true
+        }
         val appTheme = Prefs.appTheme
         val appThemePref = requirePreference<ListPreference>(R.string.app_theme_key)
         val dayThemePref = requirePreference<ListPreference>(R.string.day_theme_key)

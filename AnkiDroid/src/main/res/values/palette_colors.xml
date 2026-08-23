@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Material 3 Expressive color palettes for AnkiDroid.
+    Each palette defines tonal primary/secondary/tertiary roles for light and
+    dark modes. The default palette is "blue" (see m3_expressive.xml); these
+    palettes are applied as theme overlays from Settings → Appearance.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedResources">
+
+    <!-- ************ Violet ************ -->
+    <color name="palette_violet_primary_light">#6750A4</color>
+    <color name="palette_violet_on_primary_light">#FFFFFF</color>
+    <color name="palette_violet_primary_container_light">#EADDFF</color>
+    <color name="palette_violet_on_primary_container_light">#21005D</color>
+    <color name="palette_violet_secondary_container_light">#E8DEF8</color>
+    <color name="palette_violet_on_secondary_container_light">#1D192B</color>
+    <color name="palette_violet_tertiary_container_light">#FFD8E4</color>
+    <color name="palette_violet_on_tertiary_container_light">#31111D</color>
+    <color name="palette_violet_primary_dark">#D0BCFF</color>
+    <color name="palette_violet_on_primary_dark">#381E72</color>
+    <color name="palette_violet_primary_container_dark">#4F378B</color>
+    <color name="palette_violet_on_primary_container_dark">#EADDFF</color>
+    <color name="palette_violet_secondary_container_dark">#4A4458</color>
+    <color name="palette_violet_on_secondary_container_dark">#E8DEF8</color>
+    <color name="palette_violet_tertiary_container_dark">#633B48</color>
+    <color name="palette_violet_on_tertiary_container_dark">#FFD8E4</color>
+
+    <!-- ************ Green ************ -->
+    <color name="palette_green_primary_light">#206B34</color>
+    <color name="palette_green_on_primary_light">#FFFFFF</color>
+    <color name="palette_green_primary_container_light">#A7F5AD</color>
+    <color name="palette_green_on_primary_container_light">#00210A</color>
+    <color name="palette_green_secondary_container_light">#C5EEC9</color>
+    <color name="palette_green_on_secondary_container_light">#0A2010</color>
+    <color name="palette_green_tertiary_container_light">#D8E8B8</color>
+    <color name="palette_green_on_tertiary_container_light">#141F04</color>
+    <color name="palette_green_primary_dark">#8BD88F</color>
+    <color name="palette_green_on_primary_dark">#003914</color>
+    <color name="palette_green_primary_container_dark">#00531F</color>
+    <color name="palette_green_on_primary_container_dark">#A7F5AD</color>
+    <color name="palette_green_secondary_container_dark">#35543A</color>
+    <color name="palette_green_on_secondary_container_dark">#C5EEC9</color>
+    <color name="palette_green_tertiary_container_dark">#4C602D</color>
+    <color name="palette_green_on_tertiary_container_dark">#D8E8B8</color>
+
+    <!-- ************ Amber ************ -->
+    <color name="palette_amber_primary_light">#7A5900</color>
+    <color name="palette_amber_on_primary_light">#FFFFFF</color>
+    <color name="palette_amber_primary_container_light">#FFDF9E</color>
+    <color name="palette_amber_on_primary_container_light">#261A00</color>
+    <color name="palette_amber_secondary_container_light">#F3E0C8</color>
+    <color name="palette_amber_on_secondary_container_light">#221B0E</color>
+    <color name="palette_amber_tertiary_container_light">#D8E4B8</color>
+    <color name="palette_amber_on_tertiary_container_light">#151F04</color>
+    <color name="palette_amber_primary_dark">#F8BD48</color>
+    <color name="palette_amber_on_primary_dark">#422C00</color>
+    <color name="palette_amber_primary_container_dark">#5F4200</color>
+    <color name="palette_amber_on_primary_container_dark">#FFDF9E</color>
+    <color name="palette_amber_secondary_container_dark">#50452D</color>
+    <color name="palette_amber_on_secondary_container_dark">#F3E0C8</color>
+    <color name="palette_amber_tertiary_container_dark">#665F3C</color>
+    <color name="palette_amber_on_tertiary_container_dark">#D8E4B8</color>
+
+    <!-- ************ Rose ************ -->
+    <color name="palette_rose_primary_light">#984061</color>
+    <color name="palette_rose_on_primary_light">#FFFFFF</color>
+    <color name="palette_rose_primary_container_light">#FFD9E4</color>
+    <color name="palette_rose_on_primary_container_light">#3E001D</color>
+    <color name="palette_rose_secondary_container_light">#F4DDDF</color>
+    <color name="palette_rose_on_secondary_container_light">#22191A</color>
+    <color name="palette_rose_tertiary_container_light">#E5E0B8</color>
+    <color name="palette_rose_on_tertiary_container_light">#1D1C0C</color>
+    <color name="palette_rose_primary_dark">#FFB1C8</color>
+    <color name="palette_rose_on_primary_dark">#5E1133</color>
+    <color name="palette_rose_primary_container_dark">#7B2949</color>
+    <color name="palette_rose_on_primary_container_dark">#FFD9E4</color>
+    <color name="palette_rose_secondary_container_dark">#514346</color>
+    <color name="palette_rose_on_secondary_container_dark">#F4DDDF</color>
+    <color name="palette_rose_tertiary_container_dark">#6A6243</color>
+    <color name="palette_rose_on_tertiary_container_dark">#E5E0B8</color>
+
+    <!-- ************ Teal ************ -->
+    <color name="palette_teal_primary_light">#006A60</color>
+    <color name="palette_teal_on_primary_light">#FFFFFF</color>
+    <color name="palette_teal_primary_container_light">#9EF2E4</color>
+    <color name="palette_teal_on_primary_container_light">#00201C</color>
+    <color name="palette_teal_secondary_container_light">#C9E8E1</color>
+    <color name="palette_teal_on_secondary_container_light">#051F1B</color>
+    <color name="palette_teal_tertiary_container_light">#C4EED5</color>
+    <color name="palette_teal_on_tertiary_container_light">#002112</color>
+    <color name="palette_teal_primary_dark">#82D5C8</color>
+    <color name="palette_teal_on_primary_dark">#003731</color>
+    <color name="palette_teal_primary_container_dark">#005048</color>
+    <color name="palette_teal_on_primary_container_dark">#9EF2E4</color>
+    <color name="palette_teal_secondary_container_dark">#334B46</color>
+    <color name="palette_teal_on_secondary_container_dark">#C9E8E1</color>
+    <color name="palette_teal_tertiary_container_dark">#4C6357</color>
+    <color name="palette_teal_on_tertiary_container_dark">#C4EED5</color>
+</resources>

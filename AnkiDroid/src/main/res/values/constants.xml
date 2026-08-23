@@ -201,6 +201,37 @@
         <item>@string/theme_dark_value</item>
     </string-array>
 
+    <string name="color_palette_title">Color palette</string>
+    <string name="color_palette_summary">Accent colors for the Material 3 theme</string>
+    <string name="color_palette_blue_value">blue</string>
+    <string name="color_palette_violet_value">violet</string>
+    <string name="color_palette_green_value">green</string>
+    <string name="color_palette_amber_value">amber</string>
+    <string name="color_palette_rose_value">rose</string>
+    <string name="color_palette_teal_value">teal</string>
+    <string name="color_palette_blue_label">Blue</string>
+    <string name="color_palette_violet_label">Violet</string>
+    <string name="color_palette_green_label">Green</string>
+    <string name="color_palette_amber_label">Amber</string>
+    <string name="color_palette_rose_label">Rose</string>
+    <string name="color_palette_teal_label">Teal</string>
+    <string-array name="color_palette_values">
+        <item>@string/color_palette_blue_value</item>
+        <item>@string/color_palette_violet_value</item>
+        <item>@string/color_palette_green_value</item>
+        <item>@string/color_palette_amber_value</item>
+        <item>@string/color_palette_rose_value</item>
+        <item>@string/color_palette_teal_value</item>
+    </string-array>
+    <string-array name="color_palette_labels">
+        <item>@string/color_palette_blue_label</item>
+        <item>@string/color_palette_violet_label</item>
+        <item>@string/color_palette_green_label</item>
+        <item>@string/color_palette_amber_label</item>
+        <item>@string/color_palette_rose_label</item>
+        <item>@string/color_palette_teal_label</item>
+    </string-array>
+
     <string-array name="sync_media_entries">
         <item>@string/sync_media_always</item>
         <item>@string/sync_media_only_unmetered</item>

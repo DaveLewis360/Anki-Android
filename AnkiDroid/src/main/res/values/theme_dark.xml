@@ -10,27 +10,46 @@
     <color name="theme_dark_drawer_item">#DEFFFFFF</color>
 
     <style name="Base.Theme.Dark" parent="@style/Theme.Material3.Dark.NoActionBar">
-        <!-- Android colors -->
-        <item name="colorPrimary">@color/material_blue_400</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorPrimaryDark">@color/theme_dark_primary_dark</item>
+        <!-- Android colors: Material 3 Expressive tonal scheme -->
+        <item name="colorPrimary">@color/m3_primary_dark</item>
+        <item name="colorOnPrimary">@color/m3_on_primary_dark</item>
+        <item name="colorPrimaryDark">@color/m3_background_dark</item>
         <item name="colorSurface">?android:colorBackground</item>
-        <item name="colorAccent">@color/material_blue_400</item>
-        <item name="colorOnSurface">@color/white</item>
-        <item name="colorPrimaryContainer">@color/white</item> <!-- Switch thumb color when disabled and being pressed -->
-        <item name="colorOnPrimaryContainer">@color/white</item> <!-- FAB icons -->
+        <item name="colorAccent">@color/m3_primary_dark</item>
+        <item name="colorOnSurface">@color/m3_on_surface_dark</item>
+        <item name="colorPrimaryContainer">@color/m3_primary_container_dark</item>
+        <item name="colorOnPrimaryContainer">@color/m3_on_primary_container_dark</item>
+        <item name="colorSecondary">@color/m3_secondary_dark</item>
+        <item name="colorOnSecondary">@color/m3_on_secondary_dark</item>
+        <item name="colorSecondaryContainer">@color/m3_secondary_container_dark</item>
+        <item name="colorOnSecondaryContainer">@color/m3_on_secondary_container_dark</item>
+        <item name="colorTertiary">@color/m3_tertiary_dark</item>
+        <item name="colorOnTertiary">@color/m3_on_tertiary_dark</item>
+        <item name="colorTertiaryContainer">@color/m3_tertiary_container_dark</item>
+        <item name="colorOnTertiaryContainer">@color/m3_on_tertiary_container_dark</item>
+        <item name="colorError">@color/m3_error_dark</item>
+        <item name="colorOnError">@color/m3_on_error_dark</item>
+        <item name="colorErrorContainer">@color/m3_error_container_dark</item>
+        <item name="colorOnErrorContainer">@color/m3_on_error_container_dark</item>
+        <item name="colorOutline">@color/m3_outline_dark</item>
+        <item name="colorOutlineVariant">@color/m3_outline_variant_dark</item>
+        <item name="colorSurfaceVariant">@color/m3_surface_variant_dark</item>
+        <item name="colorOnSurfaceVariant">@color/m3_on_surface_variant_dark</item>
 
         <item name="android:textColor">@color/text_color_dark</item>
         <item name="android:textColorSecondary">@color/text_color_secondary_dark</item>
-        <item name="android:colorBackground">@color/material_theme_grey</item>
-        <item name="android:windowBackground">@color/material_theme_grey</item>
-        <item name="colorSecondaryContainer">#3C5A6E</item>
-        <item name="colorOnSecondaryContainer">@color/white</item>
+        <item name="android:colorBackground">@color/m3_background_dark</item>
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
 
-        <item name="colorSurfaceContainerHighest">?attr/colorSurfaceContainer</item>
-        <item name="colorSurfaceContainerHigh">#424C54</item>
-        <item name="colorSurfaceContainer">#0F42A5F5</item>
-        <item name="colorSurfaceContainerLow">?android:attr/colorBackground</item>
+        <!-- M3 Expressive shape scale -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.AnkiDroid.M3Expressive.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.AnkiDroid.M3Expressive.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.AnkiDroid.M3Expressive.Large</item>
+
+        <item name="colorSurfaceContainerHighest">@color/m3_surface_container_highest_dark</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_surface_container_high_dark</item>
+        <item name="colorSurfaceContainer">@color/m3_surface_container_dark</item>
+        <item name="colorSurfaceContainerLow">@color/m3_surface_container_low_dark</item>
         <!-- Widget colors -->
         <item name="widgetColorActivated">?attr/colorAccent</item>
         <item name="preferenceCategoryTitleTextColor">?attr/colorAccent</item>
@@ -42,11 +61,11 @@
         <item name="popupMenuStyle">@style/PopupMenuStyle</item>
         <item name="spinnerStyle">@style/SpinnerStyle</item>
         <!-- Action bar styles -->
-        <item name="appBarColor">@color/theme_dark_primary</item>
+        <item name="appBarColor">@color/m3_surface_container_high_dark</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="windowActionModeOverlay">true</item>
-        <item name="actionBarTextColor">@color/white</item>
+        <item name="actionBarTextColor">@color/m3_on_surface_dark</item>
         <item name="actionBarPopupTextColor">@color/theme_dark_primary_text</item>
         <item name="actionModeBackground">@color/theme_dark_primary</item>
         <!-- Tab layout -->
@@ -61,34 +80,34 @@
         <item name="expandRef">@drawable/ic_chevron_right_white</item>
         <item name="collapseRef">@drawable/ic_expand_more_white</item>
         <!-- Count colors -->
-        <item name="newCountColor">@color/material_indigo_200</item>
-        <item name="learnCountColor">@color/material_red_200</item>
-        <item name="reviewCountColor">@color/material_green_200</item>
+        <item name="newCountColor">@color/m3_new_count_dark</item>
+        <item name="learnCountColor">@color/m3_learn_count_dark</item>
+        <item name="reviewCountColor">@color/m3_review_count_dark</item>
         <item name="buryCountColor">@color/disabled_gray_dark</item>
-        <item name="zeroCountColor">#404040</item>
-        <!-- Study Screen colors -->
-        <item name="showAnswerButtonBackground">#22333f</item>
-        <item name="againButtonBackground">@color/material_red_800</item>
-        <item name="hardButtonBackground">@color/material_blue_grey_800</item>
-        <item name="goodButtonBackground">@color/material_green_800</item>
-        <item name="easyButtonBackground">@color/material_light_blue_800</item>
-        <item name="topBarColor">@color/theme_dark_primary_light</item>
-        <item name="maxTimerColor">@color/material_red_300</item>
-        <item name="answerButtonTextColor">@color/white</item>
-        <item name="againButtonTextColor">@color/white</item>
-        <item name="hardButtonTextColor">@color/white</item>
-        <item name="goodButtonTextColor">@color/white</item>
-        <item name="easyButtonTextColor">@color/white</item>
+        <item name="zeroCountColor">#5A5A5A</item>
+        <!-- Study Screen colors: expressive tonal containers -->
+        <item name="showAnswerButtonBackground">@color/m3_primary_dark</item>
+        <item name="againButtonBackground">@color/m3_again_container_dark</item>
+        <item name="hardButtonBackground">@color/m3_hard_container_dark</item>
+        <item name="goodButtonBackground">@color/m3_good_container_dark</item>
+        <item name="easyButtonBackground">@color/m3_easy_container_dark</item>
+        <item name="topBarColor">@color/m3_surface_container_high_dark</item>
+        <item name="maxTimerColor">@color/m3_error_dark</item>
+        <item name="answerButtonTextColor">@color/m3_on_primary_dark</item>
+        <item name="againButtonTextColor">@color/m3_on_again_container_dark</item>
+        <item name="hardButtonTextColor">@color/m3_on_hard_container_dark</item>
+        <item name="goodButtonTextColor">@color/m3_on_good_container_dark</item>
+        <item name="easyButtonTextColor">@color/m3_on_easy_container_dark</item>
 
-        <item name="alternativeBackgroundColor">#2a2a2a</item>
-        <item name="againTextColor">@color/material_red_200</item>
-        <item name="hardTextColor">@color/material_orange_200</item>
-        <item name="goodTextColor">@color/material_light_green_200</item>
-        <item name="easyTextColor">@color/material_light_blue_A100</item>
-        <item name="againBackgroundColor">#462828</item>
-        <item name="hardBackgroundColor">#4e3122</item>
-        <item name="goodBackgroundColor">#2c3b2c</item>
-        <item name="easyBackgroundColor">#223946</item>
+        <item name="alternativeBackgroundColor">@color/m3_surface_container_low_dark</item>
+        <item name="againTextColor">@color/m3_on_again_container_dark</item>
+        <item name="hardTextColor">@color/m3_on_hard_container_dark</item>
+        <item name="goodTextColor">@color/m3_on_good_container_dark</item>
+        <item name="easyTextColor">@color/m3_on_easy_container_dark</item>
+        <item name="againBackgroundColor">@color/m3_again_container_dark</item>
+        <item name="hardBackgroundColor">@color/m3_hard_container_dark</item>
+        <item name="goodBackgroundColor">@color/m3_good_container_dark</item>
+        <item name="easyBackgroundColor">@color/m3_easy_container_dark</item>
         <item name="againIconColor">?againTextColor</item>
         <item name="hardIconColor">?hardTextColor</item>
         <item name="goodIconColor">?goodTextColor</item>
@@ -119,8 +138,8 @@
         <item name="buttonRippleColor">#BABABA</item>
         <item name="buttonForegroundColor">#757575</item>
         <!-- FAB -->
-        <item name="fab_normal">@color/material_light_blue_700</item>
-        <item name="fab_pressed">@color/material_light_blue_900</item>
+        <item name="fab_normal">@color/m3_primary_container_dark</item>
+        <item name="fab_pressed">@color/m3_surface_variant_dark</item>
         <!-- Images -->
         <item name="navDrawerImage">@drawable/nav_drawer_logo_dark_theme</item>
         <!-- Dialog styles -->
@@ -135,7 +154,7 @@
         <item name="editTextDisabled">@color/material_grey_500</item>
         <item name="overflowAndPopupMenuIconColor">#9effffff</item>
         <!-- StatusBar -->
-        <item name="android:statusBarColor">@color/theme_dark_primary</item>
+        <item name="android:statusBarColor">@color/m3_surface_container_high_dark</item>
         <item name="android:windowLightStatusBar">false</item>
         <!-- Navbar -->
         <item name="android:navigationBarColor">@color/material_theme_grey</item>

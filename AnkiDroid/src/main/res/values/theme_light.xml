@@ -2,27 +2,47 @@
 
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="DuplicateCrowdInStrings">
     <style name="Base.Theme.Light" parent="@style/Theme.Material3.Light.NoActionBar">
-        <!-- Android colors -->
-        <item name="colorPrimary">@color/material_light_blue_500</item>
-        <item name="colorPrimaryDark">@color/material_light_blue_700</item>
-        <item name="colorSurface">@color/white</item>
-        <item name="colorOnSurface">@color/black</item>
-        <item name="colorAccent">@color/material_blue_grey_700</item>
-        <item name="colorPrimaryContainer">@color/white</item> <!-- Switch thumb color when disabled and being pressed -->
-        <item name="colorOnPrimaryContainer">@color/white</item> <!-- FAB icons -->
-        <item name="colorSecondaryContainer">#C1E7FF</item>
+        <!-- Android colors: Material 3 Expressive tonal scheme -->
+        <item name="colorPrimary">@color/m3_primary_light</item>
+        <item name="colorPrimaryDark">@color/m3_on_primary_container_light</item>
+        <item name="colorOnPrimary">@color/m3_on_primary_light</item>
+        <item name="colorSurface">@color/m3_surface_light</item>
+        <item name="colorOnSurface">@color/m3_on_surface_light</item>
+        <item name="colorAccent">@color/m3_primary_light</item>
+        <item name="colorPrimaryContainer">@color/m3_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/m3_on_primary_container_light</item>
+        <item name="colorSecondary">@color/m3_secondary_light</item>
+        <item name="colorOnSecondary">@color/m3_on_secondary_light</item>
+        <item name="colorSecondaryContainer">@color/m3_secondary_container_light</item>
+        <item name="colorOnSecondaryContainer">@color/m3_on_secondary_container_light</item>
+        <item name="colorTertiary">@color/m3_tertiary_light</item>
+        <item name="colorOnTertiary">@color/m3_on_tertiary_light</item>
+        <item name="colorTertiaryContainer">@color/m3_tertiary_container_light</item>
+        <item name="colorOnTertiaryContainer">@color/m3_on_tertiary_container_light</item>
+        <item name="colorError">@color/m3_error_light</item>
+        <item name="colorOnError">@color/m3_on_error_light</item>
+        <item name="colorErrorContainer">@color/m3_error_container_light</item>
+        <item name="colorOnErrorContainer">@color/m3_on_error_container_light</item>
+        <item name="colorOutline">@color/m3_outline_light</item>
+        <item name="colorOutlineVariant">@color/m3_outline_variant_light</item>
+        <item name="colorSurfaceVariant">@color/m3_surface_variant_light</item>
+        <item name="colorOnSurfaceVariant">@color/m3_on_surface_variant_light</item>
 
-        <item name="colorSurfaceContainerHighest">?attr/colorSurfaceContainer</item>
-        <item name="colorSurfaceContainerHigh">#E4F5FD</item>
-        <item name="colorSurfaceContainer">#0F03A9F4</item>
-        <item name="colorSurfaceContainerLow">?android:attr/colorBackground</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_surface_container_highest_light</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_surface_container_high_light</item>
+        <item name="colorSurfaceContainer">@color/m3_surface_container_light</item>
+        <item name="colorSurfaceContainerLow">@color/m3_surface_container_low_light</item>
+
+        <!-- M3 Expressive shape scale -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.AnkiDroid.M3Expressive.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.AnkiDroid.M3Expressive.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.AnkiDroid.M3Expressive.Large</item>
 
         <item name="android:textColor">@color/text_color_light</item>
         <item name="android:textColorSecondary">@color/text_color_secondary_light</item>
-        <item name="android:colorBackground">@android:color/white</item>
-        <item name="android:windowBackground">@android:color/white</item>
-        <item name="preferenceCategoryTitleTextColor">@color/material_light_blue_800</item>
-        <item name="colorOnSurface">@color/black</item>
+        <item name="android:colorBackground">@color/m3_background_light</item>
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
+        <item name="preferenceCategoryTitleTextColor">@color/m3_primary_light</item>
         <!-- Widget colors -->
         <item name="widgetColorActivated">?attr/colorPrimary</item>
         <!-- Navigation drawer theme -->
@@ -32,17 +52,17 @@
         <item name="actionOverflowMenuStyle">@style/OverflowMenuStyle</item>
         <item name="popupMenuStyle">@style/PopupMenuStyle</item>
         <item name="spinnerStyle">@style/SpinnerStyle</item>
-        <!-- Action bar styles -->
-        <item name="appBarColor">?attr/colorPrimary</item>
+        <!-- Action bar styles: surface-toned expressive app bar -->
+        <item name="appBarColor">@color/m3_surface_container_high_light</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="windowActionModeOverlay">true</item>
-        <item name="actionBarTextColor">@color/white</item>
+        <item name="actionBarTextColor">@color/m3_on_surface_light</item>
         <item name="actionBarPopupTextColor">?android:attr/textColor</item>
-        <item name="actionModeBackground">?attr/colorPrimary</item>
+        <item name="actionModeBackground">@color/m3_secondary_container_light</item>
         <!-- Tab layout -->
-        <item name="tabLayoutBackgroundColor">?attr/colorPrimary</item>
-        <item name="tabActiveIconColor">@color/white</item>
+        <item name="tabLayoutBackgroundColor">@color/m3_surface_container_high_light</item>
+        <item name="tabActiveIconColor">@color/m3_primary_light</item>
         <!-- Deck list colors and divider -->
         <item name="currentDeckBackground">@drawable/item_background_selected</item>
         <item name="currentDeckBackgroundColor">#ececec</item>
@@ -52,40 +72,40 @@
         <item name="expandRef">@drawable/ic_chevron_right_black</item>
         <item name="collapseRef">@drawable/ic_expand_more_black</item>
         <!-- Count colors -->
-        <item name="newCountColor">@color/material_indigo_700</item>
-        <item name="learnCountColor">@color/material_red_700</item>
-        <item name="reviewCountColor">@color/material_green_800</item>
+        <item name="newCountColor">@color/m3_new_count_light</item>
+        <item name="learnCountColor">@color/m3_learn_count_light</item>
+        <item name="reviewCountColor">@color/m3_review_count_light</item>
         <item name="buryCountColor">@color/disabled_gray_light</item>
-        <item name="zeroCountColor">#1f000000</item>
-        <!-- Study Screen colors -->
-        <item name="againButtonBackground">@color/material_red_700</item>
-        <item name="hardButtonBackground">@color/material_blue_grey_700</item>
-        <item name="goodButtonBackground">@color/material_green_500</item>
-        <item name="easyButtonBackground">@color/material_light_blue_500</item>
-        <item name="topBarColor">@color/material_light_blue_100</item>
-        <item name="maxTimerColor">@color/material_red_500</item>
-        <item name="answerButtonTextColor">@color/white</item>
-        <item name="againButtonTextColor">@color/white</item>
-        <item name="hardButtonTextColor">@color/white</item>
-        <item name="goodButtonTextColor">@color/white</item>
-        <item name="easyButtonTextColor">@color/white</item>
+        <item name="zeroCountColor">#66666666</item>
+        <!-- Study Screen colors: expressive tonal containers -->
+        <item name="againButtonBackground">@color/m3_again_container_light</item>
+        <item name="hardButtonBackground">@color/m3_hard_container_light</item>
+        <item name="goodButtonBackground">@color/m3_good_container_light</item>
+        <item name="easyButtonBackground">@color/m3_easy_container_light</item>
+        <item name="topBarColor">@color/m3_surface_container_high_light</item>
+        <item name="maxTimerColor">@color/m3_error_light</item>
+        <item name="answerButtonTextColor">@color/m3_on_primary_container_light</item>
+        <item name="againButtonTextColor">@color/m3_on_again_container_light</item>
+        <item name="hardButtonTextColor">@color/m3_on_hard_container_light</item>
+        <item name="goodButtonTextColor">@color/m3_on_good_container_light</item>
+        <item name="easyButtonTextColor">@color/m3_on_easy_container_light</item>
 
-        <item name="alternativeBackgroundColor">#f4f5f9</item>
-        <item name="againTextColor">@color/material_red_900</item>
-        <item name="hardTextColor">#B33800</item>
-        <item name="goodTextColor">@color/material_green_900</item>
-        <item name="easyTextColor">@color/material_light_blue_900</item>
-        <item name="againBackgroundColor">#ffFFCDD2</item>
-        <item name="hardBackgroundColor">#FFE0B2</item>
-        <item name="goodBackgroundColor">#C8E6C9</item>
-        <item name="easyBackgroundColor">@color/material_light_blue_100</item>
+        <item name="alternativeBackgroundColor">@color/m3_surface_container_low_light</item>
+        <item name="againTextColor">@color/m3_on_again_container_light</item>
+        <item name="hardTextColor">@color/m3_on_hard_container_light</item>
+        <item name="goodTextColor">@color/m3_on_good_container_light</item>
+        <item name="easyTextColor">@color/m3_on_easy_container_light</item>
+        <item name="againBackgroundColor">@color/m3_again_container_light</item>
+        <item name="hardBackgroundColor">@color/m3_hard_container_light</item>
+        <item name="goodBackgroundColor">@color/m3_good_container_light</item>
+        <item name="easyBackgroundColor">@color/m3_easy_container_light</item>
         <item name="againIconColor">?againTextColor</item>
         <item name="hardIconColor">?hardTextColor</item>
         <item name="goodIconColor">?goodTextColor</item>
         <item name="easyIconColor">?easyTextColor</item>
         <!-- Study Screen button drawables -->
-        <item name="showAnswerButtonBackground">@color/material_blue_700</item>
-        <item name="showAnswerColor">@color/material_blue_grey_700</item>
+        <item name="showAnswerButtonBackground">@color/m3_primary_light</item>
+        <item name="showAnswerColor">@color/m3_on_primary_light</item>
         <item name="againButtonRef">@drawable/footer_button_again</item>
         <item name="hardButtonRef">@drawable/footer_button_hard</item>
         <item name="goodButtonRef">@drawable/footer_button_good</item>
@@ -112,8 +132,8 @@
         <item name="buttonRippleColor">#595959</item>
         <item name="buttonForegroundColor">#D6D7D7</item>
         <!-- FAB -->
-        <item name="fab_normal">@color/material_light_blue_700</item>
-        <item name="fab_pressed">@color/material_light_blue_900</item>
+        <item name="fab_normal">@color/m3_primary_container_light</item>
+        <item name="fab_pressed">@color/m3_surface_variant_light</item>
         <!-- Images -->
         <item name="navDrawerImage">@drawable/nav_drawer_logo</item>
         <!-- Dialog styles -->
@@ -122,11 +142,12 @@
         <item name="android:dialogCornerRadius" tools:targetApi="p">@dimen/dialog_corner_radius</item>
         <item name="textAllCaps">false</item>
         <!--Custom Tabs colors-->
-        <item name="customTabNavBarColor">@color/material_light_blue_500</item>
-        <item name="popupBackgroundColor">@android:color/white</item>
+        <item name="customTabNavBarColor">@color/m3_primary_light</item>
+        <item name="popupBackgroundColor">@color/m3_surface_container_low_light</item>
         <item name="overflowAndPopupMenuIconColor">#9e000000</item>
         <!-- StatusBar -->
-        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <item name="android:statusBarColor">@color/m3_surface_container_high_light</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <!-- Navbar -->
         <item name="android:navigationBarColor">@color/semi_transparent_black</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>

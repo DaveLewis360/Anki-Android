@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Material 3 Expressive palette overlays. Applied by Themes.setTheme() on top of
+    the base light/dark themes, according to the "color palette" preference.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedResources">
+    <style name="ThemeOverlay.Palette.Violet.light" parent="">
+        <item name="colorPrimary">@color/palette_violet_primary_light</item>
+        <item name="colorOnPrimary">@color/palette_violet_on_primary_light</item>
+        <item name="colorPrimaryContainer">@color/palette_violet_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/palette_violet_on_primary_container_light</item>
+        <item name="colorSecondaryContainer">@color/palette_violet_secondary_container_light</item>
+        <item name="colorOnSecondaryContainer">@color/palette_violet_on_secondary_container_light</item>
+        <item name="colorTertiaryContainer">@color/palette_violet_tertiary_container_light</item>
+        <item name="colorOnTertiaryContainer">@color/palette_violet_on_tertiary_container_light</item>
+        <item name="colorAccent">@color/palette_violet_primary_light</item>
+        <item name="colorPrimaryDark">@color/palette_violet_on_primary_container_light</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_violet_primary_container_light</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_violet_primary_light</item>
+        <item name="showAnswerColor">@color/palette_violet_on_primary_light</item>
+        <item name="customTabNavBarColor">@color/palette_violet_primary_light</item>
+        <item name="snackbarButtonTextColor">@color/palette_violet_primary_light</item>
+        <item name="progressDialogButtonTextColor">@color/palette_violet_primary_light</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_violet_primary_light</item>
+        <item name="tabActiveIconColor">@color/palette_violet_primary_light</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Violet.dark" parent="">
+        <item name="colorPrimary">@color/palette_violet_primary_dark</item>
+        <item name="colorOnPrimary">@color/palette_violet_on_primary_dark</item>
+        <item name="colorPrimaryContainer">@color/palette_violet_primary_container_dark</item>
+        <item name="colorOnPrimaryContainer">@color/palette_violet_on_primary_container_dark</item>
+        <item name="colorSecondaryContainer">@color/palette_violet_secondary_container_dark</item>
+        <item name="colorOnSecondaryContainer">@color/palette_violet_on_secondary_container_dark</item>
+        <item name="colorTertiaryContainer">@color/palette_violet_tertiary_container_dark</item>
+        <item name="colorOnTertiaryContainer">@color/palette_violet_on_tertiary_container_dark</item>
+        <item name="colorAccent">@color/palette_violet_primary_dark</item>
+        <item name="colorPrimaryDark">@color/palette_violet_on_primary_container_dark</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_violet_primary_container_dark</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_violet_primary_dark</item>
+        <item name="showAnswerColor">@color/palette_violet_on_primary_dark</item>
+        <item name="customTabNavBarColor">@color/palette_violet_primary_dark</item>
+        <item name="snackbarButtonTextColor">@color/palette_violet_primary_dark</item>
+        <item name="progressDialogButtonTextColor">@color/palette_violet_primary_dark</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_violet_primary_dark</item>
+        <item name="tabActiveIconColor">@color/palette_violet_primary_dark</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Green.light" parent="">
+        <item name="colorPrimary">@color/palette_green_primary_light</item>
+        <item name="colorOnPrimary">@color/palette_green_on_primary_light</item>
+        <item name="colorPrimaryContainer">@color/palette_green_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/palette_green_on_primary_container_light</item>
+        <item name="colorSecondaryContainer">@color/palette_green_secondary_container_light</item>
+        <item name="colorOnSecondaryContainer">@color/palette_green_on_secondary_container_light</item>
+        <item name="colorTertiaryContainer">@color/palette_green_tertiary_container_light</item>
+        <item name="colorOnTertiaryContainer">@color/palette_green_on_tertiary_container_light</item>
+        <item name="colorAccent">@color/palette_green_primary_light</item>
+        <item name="colorPrimaryDark">@color/palette_green_on_primary_container_light</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_green_primary_container_light</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_green_primary_light</item>
+        <item name="showAnswerColor">@color/palette_green_on_primary_light</item>
+        <item name="customTabNavBarColor">@color/palette_green_primary_light</item>
+        <item name="snackbarButtonTextColor">@color/palette_green_primary_light</item>
+        <item name="progressDialogButtonTextColor">@color/palette_green_primary_light</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_green_primary_light</item>
+        <item name="tabActiveIconColor">@color/palette_green_primary_light</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Green.dark" parent="">
+        <item name="colorPrimary">@color/palette_green_primary_dark</item>
+        <item name="colorOnPrimary">@color/palette_green_on_primary_dark</item>
+        <item name="colorPrimaryContainer">@color/palette_green_primary_container_dark</item>
+        <item name="colorOnPrimaryContainer">@color/palette_green_on_primary_container_dark</item>
+        <item name="colorSecondaryContainer">@color/palette_green_secondary_container_dark</item>
+        <item name="colorOnSecondaryContainer">@color/palette_green_on_secondary_container_dark</item>
+        <item name="colorTertiaryContainer">@color/palette_green_tertiary_container_dark</item>
+        <item name="colorOnTertiaryContainer">@color/palette_green_on_tertiary_container_dark</item>
+        <item name="colorAccent">@color/palette_green_primary_dark</item>
+        <item name="colorPrimaryDark">@color/palette_green_on_primary_container_dark</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_green_primary_container_dark</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_green_primary_dark</item>
+        <item name="showAnswerColor">@color/palette_green_on_primary_dark</item>
+        <item name="customTabNavBarColor">@color/palette_green_primary_dark</item>
+        <item name="snackbarButtonTextColor">@color/palette_green_primary_dark</item>
+        <item name="progressDialogButtonTextColor">@color/palette_green_primary_dark</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_green_primary_dark</item>
+        <item name="tabActiveIconColor">@color/palette_green_primary_dark</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Amber.light" parent="">
+        <item name="colorPrimary">@color/palette_amber_primary_light</item>
+        <item name="colorOnPrimary">@color/palette_amber_on_primary_light</item>
+        <item name="colorPrimaryContainer">@color/palette_amber_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/palette_amber_on_primary_container_light</item>
+        <item name="colorSecondaryContainer">@color/palette_amber_secondary_container_light</item>
+        <item name="colorOnSecondaryContainer">@color/palette_amber_on_secondary_container_light</item>
+        <item name="colorTertiaryContainer">@color/palette_amber_tertiary_container_light</item>
+        <item name="colorOnTertiaryContainer">@color/palette_amber_on_tertiary_container_light</item>
+        <item name="colorAccent">@color/palette_amber_primary_light</item>
+        <item name="colorPrimaryDark">@color/palette_amber_on_primary_container_light</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_amber_primary_container_light</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_amber_primary_light</item>
+        <item name="showAnswerColor">@color/palette_amber_on_primary_light</item>
+        <item name="customTabNavBarColor">@color/palette_amber_primary_light</item>
+        <item name="snackbarButtonTextColor">@color/palette_amber_primary_light</item>
+        <item name="progressDialogButtonTextColor">@color/palette_amber_primary_light</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_amber_primary_light</item>
+        <item name="tabActiveIconColor">@color/palette_amber_primary_light</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Amber.dark" parent="">
+        <item name="colorPrimary">@color/palette_amber_primary_dark</item>
+        <item name="colorOnPrimary">@color/palette_amber_on_primary_dark</item>
+        <item name="colorPrimaryContainer">@color/palette_amber_primary_container_dark</item>
+        <item name="colorOnPrimaryContainer">@color/palette_amber_on_primary_container_dark</item>
+        <item name="colorSecondaryContainer">@color/palette_amber_secondary_container_dark</item>
+        <item name="colorOnSecondaryContainer">@color/palette_amber_on_secondary_container_dark</item>
+        <item name="colorTertiaryContainer">@color/palette_amber_tertiary_container_dark</item>
+        <item name="colorOnTertiaryContainer">@color/palette_amber_on_tertiary_container_dark</item>
+        <item name="colorAccent">@color/palette_amber_primary_dark</item>
+        <item name="colorPrimaryDark">@color/palette_amber_on_primary_container_dark</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_amber_primary_container_dark</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_amber_primary_dark</item>
+        <item name="showAnswerColor">@color/palette_amber_on_primary_dark</item>
+        <item name="customTabNavBarColor">@color/palette_amber_primary_dark</item>
+        <item name="snackbarButtonTextColor">@color/palette_amber_primary_dark</item>
+        <item name="progressDialogButtonTextColor">@color/palette_amber_primary_dark</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_amber_primary_dark</item>
+        <item name="tabActiveIconColor">@color/palette_amber_primary_dark</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Rose.light" parent="">
+        <item name="colorPrimary">@color/palette_rose_primary_light</item>
+        <item name="colorOnPrimary">@color/palette_rose_on_primary_light</item>
+        <item name="colorPrimaryContainer">@color/palette_rose_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/palette_rose_on_primary_container_light</item>
+        <item name="colorSecondaryContainer">@color/palette_rose_secondary_container_light</item>
+        <item name="colorOnSecondaryContainer">@color/palette_rose_on_secondary_container_light</item>
+        <item name="colorTertiaryContainer">@color/palette_rose_tertiary_container_light</item>
+        <item name="colorOnTertiaryContainer">@color/palette_rose_on_tertiary_container_light</item>
+        <item name="colorAccent">@color/palette_rose_primary_light</item>
+        <item name="colorPrimaryDark">@color/palette_rose_on_primary_container_light</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_rose_primary_container_light</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_rose_primary_light</item>
+        <item name="showAnswerColor">@color/palette_rose_on_primary_light</item>
+        <item name="customTabNavBarColor">@color/palette_rose_primary_light</item>
+        <item name="snackbarButtonTextColor">@color/palette_rose_primary_light</item>
+        <item name="progressDialogButtonTextColor">@color/palette_rose_primary_light</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_rose_primary_light</item>
+        <item name="tabActiveIconColor">@color/palette_rose_primary_light</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Rose.dark" parent="">
+        <item name="colorPrimary">@color/palette_rose_primary_dark</item>
+        <item name="colorOnPrimary">@color/palette_rose_on_primary_dark</item>
+        <item name="colorPrimaryContainer">@color/palette_rose_primary_container_dark</item>
+        <item name="colorOnPrimaryContainer">@color/palette_rose_on_primary_container_dark</item>
+        <item name="colorSecondaryContainer">@color/palette_rose_secondary_container_dark</item>
+        <item name="colorOnSecondaryContainer">@color/palette_rose_on_secondary_container_dark</item>
+        <item name="colorTertiaryContainer">@color/palette_rose_tertiary_container_dark</item>
+        <item name="colorOnTertiaryContainer">@color/palette_rose_on_tertiary_container_dark</item>
+        <item name="colorAccent">@color/palette_rose_primary_dark</item>
+        <item name="colorPrimaryDark">@color/palette_rose_on_primary_container_dark</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_rose_primary_container_dark</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_rose_primary_dark</item>
+        <item name="showAnswerColor">@color/palette_rose_on_primary_dark</item>
+        <item name="customTabNavBarColor">@color/palette_rose_primary_dark</item>
+        <item name="snackbarButtonTextColor">@color/palette_rose_primary_dark</item>
+        <item name="progressDialogButtonTextColor">@color/palette_rose_primary_dark</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_rose_primary_dark</item>
+        <item name="tabActiveIconColor">@color/palette_rose_primary_dark</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Teal.light" parent="">
+        <item name="colorPrimary">@color/palette_teal_primary_light</item>
+        <item name="colorOnPrimary">@color/palette_teal_on_primary_light</item>
+        <item name="colorPrimaryContainer">@color/palette_teal_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/palette_teal_on_primary_container_light</item>
+        <item name="colorSecondaryContainer">@color/palette_teal_secondary_container_light</item>
+        <item name="colorOnSecondaryContainer">@color/palette_teal_on_secondary_container_light</item>
+        <item name="colorTertiaryContainer">@color/palette_teal_tertiary_container_light</item>
+        <item name="colorOnTertiaryContainer">@color/palette_teal_on_tertiary_container_light</item>
+        <item name="colorAccent">@color/palette_teal_primary_light</item>
+        <item name="colorPrimaryDark">@color/palette_teal_on_primary_container_light</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_teal_primary_container_light</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_teal_primary_light</item>
+        <item name="showAnswerColor">@color/palette_teal_on_primary_light</item>
+        <item name="customTabNavBarColor">@color/palette_teal_primary_light</item>
+        <item name="snackbarButtonTextColor">@color/palette_teal_primary_light</item>
+        <item name="progressDialogButtonTextColor">@color/palette_teal_primary_light</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_teal_primary_light</item>
+        <item name="tabActiveIconColor">@color/palette_teal_primary_light</item>
+    </style>
+    <style name="ThemeOverlay.Palette.Teal.dark" parent="">
+        <item name="colorPrimary">@color/palette_teal_primary_dark</item>
+        <item name="colorOnPrimary">@color/palette_teal_on_primary_dark</item>
+        <item name="colorPrimaryContainer">@color/palette_teal_primary_container_dark</item>
+        <item name="colorOnPrimaryContainer">@color/palette_teal_on_primary_container_dark</item>
+        <item name="colorSecondaryContainer">@color/palette_teal_secondary_container_dark</item>
+        <item name="colorOnSecondaryContainer">@color/palette_teal_on_secondary_container_dark</item>
+        <item name="colorTertiaryContainer">@color/palette_teal_tertiary_container_dark</item>
+        <item name="colorOnTertiaryContainer">@color/palette_teal_on_tertiary_container_dark</item>
+        <item name="colorAccent">@color/palette_teal_primary_dark</item>
+        <item name="colorPrimaryDark">@color/palette_teal_on_primary_container_dark</item>
+        <!-- App accent attributes -->
+        <item name="fab_normal">@color/palette_teal_primary_container_dark</item>
+        <item name="fab_pressed">?attr/colorSurfaceVariant</item>
+        <item name="showAnswerButtonBackground">@color/palette_teal_primary_dark</item>
+        <item name="showAnswerColor">@color/palette_teal_on_primary_dark</item>
+        <item name="customTabNavBarColor">@color/palette_teal_primary_dark</item>
+        <item name="snackbarButtonTextColor">@color/palette_teal_primary_dark</item>
+        <item name="progressDialogButtonTextColor">@color/palette_teal_primary_dark</item>
+        <item name="preferenceCategoryTitleTextColor">@color/palette_teal_primary_dark</item>
+        <item name="tabActiveIconColor">@color/palette_teal_primary_dark</item>
+    </style>
+</resources>

@@ -22,6 +22,8 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ProcessLifecycleOwner
 import anki.collection.OpChanges
+import com.google.android.material.color.DynamicColors
+import com.google.android.material.color.DynamicColorsOptions
 import com.ichi2.anki.AnkiDroidApp.Companion.sharedPreferencesTestingOverride
 import com.ichi2.anki.analytics.initializeAnalytics
 import com.ichi2.anki.browser.SharedPreferencesLastDeckIdRepository
@@ -61,6 +63,7 @@ import com.ichi2.anki.settings.PrefsRepository
 import com.ichi2.anki.startup.ensureCollectionPathSet
 import com.ichi2.anki.startup.getDefaultAnkiDroidDirectory
 import com.ichi2.anki.ui.dialogs.ActivityAgnosticDialogs
+import com.ichi2.anki.ui.expressive.ExpressiveSettings
 import com.ichi2.utils.ExceptionUtil
 import com.ichi2.utils.LanguageUtil
 import com.ichi2.utils.measureTime
@@ -127,6 +130,16 @@ open class AnkiDroidApp :
         if (!setupAnkiDroidApp()) {
             return
         }
+
+        // Material You wallpaper colors for the classic (View-based) screens, gated by
+        // the expressive UI's dynamic-color toggle so both UIs stay in sync.
+        DynamicColors.applyToActivitiesIfAvailable(
+            this,
+            DynamicColorsOptions
+                .Builder()
+                .setPrecondition { activity, _ -> ExpressiveSettings.load(activity).dynamicColor }
+                .build(),
+        )
 
         ApplicationContextInitializer.setInstance(this)
 

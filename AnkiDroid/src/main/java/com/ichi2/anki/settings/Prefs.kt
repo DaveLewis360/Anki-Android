@@ -411,7 +411,15 @@ open class PrefsRepository(
         get() = getBoolean(R.string.dev_card_browser_fragmented, false)
 
     val devBottomNavEnabled: Boolean
-        get() = getBoolean(R.string.dev_bottom_nav_key, false)
+        get() = getBoolean(R.string.dev_bottom_nav_key, true)
+
+    var colorPalette: String
+        get() = getString(R.string.color_palette_key, "blue") ?: "blue"
+        set(value) = putString(R.string.color_palette_key, value)
+
+    /** Whether the from-scratch Material 3 Expressive Compose UI is the default entry. */
+    val useExpressiveUi: Boolean
+        get() = getBoolean(R.string.use_expressive_ui_key, true)
 
     @set:VisibleForTesting
     var devUsingCardBrowserSearchView: Boolean by booleanPref(R.string.dev_card_browser_search_view, false)

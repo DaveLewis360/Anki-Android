@@ -28,14 +28,17 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
+import com.google.android.material.color.DynamicColors
 import com.ichi2.anki.BuildConfig
 import com.ichi2.anki.R
 import com.ichi2.anki.common.utils.android.systemIsInNightMode
+import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.settings.PrefsRepository
 import com.ichi2.anki.settings.enums.AppTheme
 import com.ichi2.anki.settings.enums.DayTheme
 import com.ichi2.anki.settings.enums.NightTheme
 import com.ichi2.anki.settings.enums.Theme
+import com.ichi2.anki.ui.expressive.ExpressiveSettings
 import com.ichi2.themes.Themes.currentTheme
 import timber.log.Timber
 
@@ -52,6 +55,54 @@ object Themes {
     fun setTheme(context: Context) {
         updateCurrentTheme(context)
         context.setTheme(currentTheme.styleResId)
+        applyColorPalette(context)
+    }
+
+    /**
+     * Applies the user-selected Material 3 color palette on top of the base
+     * theme. The default palette ("blue") needs no overlay.
+     */
+    private fun applyColorPalette(context: Context) {
+        if (currentTheme == DayTheme.EINK) return // keep e-ink monochrome
+        val overlayResId =
+            when (Prefs.colorPalette to isNightTheme) {
+                "violet" to false -> R.style.ThemeOverlay_Palette_Violet_light
+                "violet" to true -> R.style.ThemeOverlay_Palette_Violet_dark
+                "green" to false -> R.style.ThemeOverlay_Palette_Green_light
+                "green" to true -> R.style.ThemeOverlay_Palette_Green_dark
+                "amber" to false -> R.style.ThemeOverlay_Palette_Amber_light
+                "amber" to true -> R.style.ThemeOverlay_Palette_Amber_dark
+                "rose" to false -> R.style.ThemeOverlay_Palette_Rose_light
+                "rose" to true -> R.style.ThemeOverlay_Palette_Rose_dark
+                "teal" to false -> R.style.ThemeOverlay_Palette_Teal_light
+                "teal" to true -> R.style.ThemeOverlay_Palette_Teal_dark
+                else -> return
+            }
+        context.theme.applyStyle(overlayResId, true)
+    }
+
+    /**
+     * Applies Material You wallpaper colors on top of the base theme and palette when
+     * the expressive UI's dynamic-color setting is enabled. Runs LAST so wallpaper
+     * colors win over the static palette for legacy (View-based) screens.
+     */
+    private fun applyDynamicColor(context: Context) {
+        if (currentTheme == DayTheme.EINK) return
+        if (context !is Activity) return
+        if (!ExpressiveSettings.load(context).dynamicColor) return
+        val overlayRes =
+            if (isNightTheme) {
+                com.google.android.material.R.style.ThemeOverlay_Material3_DynamicColors_Dark
+            } else {
+                com.google.android.material.R.style.ThemeOverlay_Material3_DynamicColors_Light
+            }
+        DynamicColors.applyToActivityIfAvailable(
+            context,
+            com.google.android.material.color.DynamicColorsOptions
+                .Builder()
+                .setThemeOverlay(overlayRes)
+                .build(),
+        )
     }
 
     /**
@@ -61,6 +112,8 @@ object Themes {
         activity: Activity,
         savedInstanceState: Bundle?,
     ) {
+        setTheme(activity)
+        applyDynamicColor(activity)
         val tv = TypedValue()
         activity.theme.resolveAttribute(android.R.attr.windowBackground, tv, true)
         val hadLauncherSplash = tv.resourceId == R.drawable.launch_screen
