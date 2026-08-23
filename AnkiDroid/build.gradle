@@ -167,6 +167,9 @@ android {
             versionNameSuffix "-debug"
             debuggable true
             applicationIdSuffix ".debug"
+            // Distinct launcher name so this fork is distinguishable on devices
+            // that also have stock AnkiDroid and other forks installed
+            resValue "string", "app_name", "AnkiDroid M3 Expressive"
             splits.abi.universalApk = true // Build universal APK for debug always
             // Check Crash Reports page on developer wiki for info on ACRA testing
             // buildConfigField "String", "ACRA_URL", '"https://918f7f55-f238-436c-b34f-c8b5f1331fe5-bluemix.cloudant.com/acra-ankidroid/_design/acra-storage/_update/report"'
@@ -494,7 +497,20 @@ dependencies {
     implementation platform(libs.androidx.compose.bom)
     implementation libs.androidx.compose.ui
     implementation libs.androidx.compose.ui.tooling.preview
-    implementation libs.androidx.compose.material3
+    // Pinned above the BOM: stable 1.4.0 lacks the Expressive wavy progress
+    // indicators; alpha10 has them while staying on Compose 1.7.5 (AGP 9.0-compatible)
+    implementation 'androidx.compose.material3:material3:1.4.0-alpha10'
+    // The Compose BOM pins material3 1.4.0 stable (which wins conflict resolution
+    // over a prerelease); a strict constraint keeps the expressive wavy build
+    constraints {
+        implementation('androidx.compose.material3:material3') {
+            version { strictly '1.4.0-alpha10' }
+            because 'stable 1.4.0 lacks LinearWavyProgressIndicator'
+        }
+        implementation('androidx.compose.material3:material3-android') {
+            version { strictly '1.4.0-alpha10' }
+        }
+    }
     implementation libs.androidx.lifecycle.viewmodel.compose
     implementation libs.androidx.lifecycle.runtime.compose
     debugImplementation libs.androidx.compose.ui.tooling

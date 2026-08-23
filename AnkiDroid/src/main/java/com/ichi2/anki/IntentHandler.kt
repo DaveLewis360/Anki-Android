@@ -100,7 +100,11 @@ class IntentHandler : AbstractIntentHandler() {
             LaunchType.OPEN_BROWSER -> runIfStoragePermissions { handleBrowserIntent(intent) }
             LaunchType.DEFAULT_START_APP_IF_NEW -> {
                 Timber.d("onCreate() performing default action")
-                launchDeckPickerIfNoOtherTasks(reloadIntent)
+                if (Prefs.useExpressiveUi) {
+                    launchDeckPickerIfNoOtherTasks(Intent(this, com.ichi2.anki.ui.expressive.ExpressiveHomeActivity::class.java))
+                } else {
+                    launchDeckPickerIfNoOtherTasks(reloadIntent)
+                }
             }
             LaunchType.COPY_DEBUG_INFO -> {
                 copyDebugInfoToClipboard(intent)

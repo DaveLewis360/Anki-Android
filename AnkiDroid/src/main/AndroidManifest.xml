@@ -290,6 +290,9 @@
             </intent-filter>
         </activity>
         <activity
+            android:name="com.ichi2.anki.ui.expressive.ExpressiveHomeActivity"
+            android:exported="false" />
+        <activity
             android:name="com.ichi2.anki.DeckPicker"
             android:theme="@style/Theme_Dark.Launcher"
             android:exported="false"

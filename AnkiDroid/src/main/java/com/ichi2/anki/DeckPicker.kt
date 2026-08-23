@@ -532,7 +532,7 @@ open class DeckPicker :
         }
         setupBottomNavigation()
         setupEdgeToEdge()
-        title = resources.getString(R.string.app_name)
+        title = getString(R.string.deck_picker_group)
 
         deckPickerBinding.deckPickerContent.visibility = View.GONE
         deckPickerBinding.noDecksPlaceholder.visibility = View.GONE
@@ -1471,7 +1471,7 @@ open class DeckPicker :
         } else {
             selectNavigationItem(R.id.nav_decks)
             updateDeckList()
-            title = resources.getString(R.string.app_name)
+            title = getString(R.string.deck_picker_group)
         }
         // Update sync status (if we've come back from a screen)
         invalidateOptionsMenu()

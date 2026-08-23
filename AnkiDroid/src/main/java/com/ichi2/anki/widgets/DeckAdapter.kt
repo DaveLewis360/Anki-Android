@@ -30,6 +30,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.color.MaterialColors
 import com.ichi2.anki.R
 import com.ichi2.anki.databinding.ItemDeckBinding
 import com.ichi2.anki.deckpicker.DisplayDeckNode
@@ -67,6 +68,8 @@ class DeckAdapter(
     private val rowCurrentDrawable: Int
     private val deckNameDefaultColor: Int
     private val deckNameDynColor: Int
+    private val selectedDeckColor: Int
+    private val defaultDeckColor: Int
     private val expandImage: Drawable
     private val collapseImage: Drawable
 
@@ -169,19 +172,12 @@ class DeckAdapter(
             binding.deckExpander.isClickable = false
             binding.deckExpander.setOnClickListener(null)
         }
-        holder.binding.deckLayout.setBackgroundResource(rowCurrentDrawable)
-        // set a different background color for the current selected deck
+        // Material 3 Expressive: the deck is a tonal card; the selected deck
+        // is emphasized with the secondary container color
         if (node.isSelected && highlightSelected) {
-            holder.binding.deckLayout.setBackgroundResource(rowCurrentDrawable)
-            if (activityHasBackground) {
-                val background =
-                    holder.binding.deckLayout.background
-                        .mutate()
-                background.alpha = (255 * SELECTED_DECK_ALPHA_AGAINST_BACKGROUND).toInt()
-                holder.binding.deckLayout.background = background
-            }
+            holder.binding.deckLayout.setCardBackgroundColor(selectedDeckColor)
         } else {
-            holder.binding.deckLayout.setBackgroundResource(selectableItemBackground)
+            holder.binding.deckLayout.setCardBackgroundColor(defaultDeckColor)
         }
         // Set deck name and colour. Filtered decks have their own colour
         binding.deckName.text = node.lastDeckNameComponent
@@ -271,6 +267,8 @@ class DeckAdapter(
         rowCurrentDrawable = ta.getResourceId(4, 0)
         deckNameDefaultColor = ta.getColor(5, context.getColor(R.color.black))
         deckNameDynColor = ta.getColor(6, context.getColor(CommonR.color.material_blue_A700))
+        selectedDeckColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSecondaryContainer, 0)
+        defaultDeckColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainerLow, 0)
         expandImage = ta.getDrawableOrThrow(7)
         expandImage.isAutoMirrored = true
         collapseImage = ta.getDrawableOrThrow(8)
