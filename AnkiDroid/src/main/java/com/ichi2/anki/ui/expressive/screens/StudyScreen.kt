@@ -57,7 +57,6 @@ import kotlinx.coroutines.launch
 /** One card in the study session. */
 data class AnsweredCard(
     val card: StudyCardUi,
-    val backHtml: String,
     val intervals: List<String>,
 )
 
@@ -125,6 +124,17 @@ fun StudyScreen(
     var flag by remember { mutableIntStateOf(0) }
     var reloadOnResume by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val cardWebView =
+        remember {
+            android.webkit.WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.allowFileAccess = true
+                settings.loadWithOverviewMode = true
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
+            }
+        }
+    DisposableEffect(Unit) { onDispose { cardWebView.destroy() } }
 
     fun loadNext() {
         scope.launch {
@@ -168,13 +178,18 @@ fun StudyScreen(
         slideDirection = 0
         working = true
         scope.launch {
-            state =
-                try {
-                    val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
-                    StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
-                } catch (e: Exception) {
-                    StudyUiState.Error(e.message ?: "Failed to reveal card")
-                }
+            try {
+                val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
+                // Inject the answer into the live WebView: the question stays exactly
+                // where it is, only the answer animates in below it.
+                cardWebView.evaluateJavascript(
+                    "window.expressiveShowAnswer(" + org.json.JSONObject.quote(back) + ")",
+                    null,
+                )
+                state = StudyUiState.Answered(AnsweredCard(s.card, intervals), s.remaining)
+            } catch (e: Exception) {
+                state = StudyUiState.Error(e.message ?: "Failed to reveal card")
+            }
             working = false
         }
     }
@@ -424,15 +439,15 @@ fun StudyScreen(
                 is StudyUiState.Finished -> CongratsPane(onClose)
                 is StudyUiState.Question ->
                     CardPane(
+                        paneWebView = cardWebView,
                         frontHtml = s.card.frontHtml,
-                        backHtml = null,
                         baseUrl = s.card.baseUrl,
                         direction = slideDirection,
                     )
                 is StudyUiState.Answered ->
                     CardPane(
+                        paneWebView = cardWebView,
                         frontHtml = s.card.card.frontHtml,
-                        backHtml = s.card.backHtml,
                         baseUrl = s.card.card.baseUrl,
                         direction = slideDirection,
                     )
@@ -508,30 +523,14 @@ private fun StudyActionButton(
 
 @Composable
 private fun CardPane(
+    paneWebView: WebView,
     frontHtml: String,
-    backHtml: String?,
     baseUrl: String,
     direction: Int,
 ) {
-    // The back template already contains the front side ({{FrontSide}}), so render
-    // exactly one side at a time — concatenating them duplicated the question.
-    val html = themedCardHtml(backHtml ?: frontHtml, direction)
-    val context = LocalContext.current
-    val webView =
-        remember {
-            WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.allowFileAccess = true
-                settings.loadWithOverviewMode = true
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                isVerticalScrollBarEnabled = false
-            }
-        }
-    DisposableEffect(Unit) {
-        onDispose { webView.destroy() }
-    }
+    val html = themedCardHtml(frontHtml, direction)
     AndroidView(
-        factory = { webView },
+        factory = { paneWebView },
         update = { view ->
             if (view.tag != html) {
                 view.tag = html
@@ -577,7 +576,9 @@ private fun themedCardHtml(
             "html, body { background-color: $bgHex !important; }" +
             "body, #content, #qa, .card { color: $fgHex !important; background-color: transparent !important; }" +
             "img { max-width: 100%; height: auto; }" +
-            "@keyframes ankiRise { from { opacity: 0; transform: translateY(28px); } " +
+            "#expressive-answer { overflow: hidden; }" +
+            ".expressive-answer-inner { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }" +
+            "@keyframes ankiRise { from { opacity: 0; transform: translateY(24px); } " +
             "to { opacity: 1; transform: translateY(0); } }" +
             "@keyframes ankiSlideForward { from { opacity: 0; transform: translateX(56px); } " +
             "to { opacity: 1; transform: translateX(0); } }" +
@@ -585,11 +586,34 @@ private fun themedCardHtml(
             "to { opacity: 1; transform: translateX(0); } }" +
             "#content { animation: $enterKeyframes 320ms cubic-bezier(0.2, 0, 0, 1) both; }" +
             "</style>"
-    return if (content.contains("</head>", ignoreCase = true)) {
-        content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
-    } else {
-        content + override
-    }
+    val bodyInject =
+        "<div id=\"expressive-answer\"></div>" +
+            "<script>window.expressiveShowAnswer = function(html) {" +
+            "var slot = document.getElementById('expressive-answer');" +
+            "if (!slot) { return; }" +
+            "var tmp = document.createElement('div');" +
+            "tmp.innerHTML = html;" +
+            "var wrap = document.createElement('div');" +
+            "wrap.className = 'expressive-answer-inner';" +
+            "var hr = tmp.querySelector('hr#answer');" +
+            "if (hr) { wrap.appendChild(hr.cloneNode(true));" +
+            "var n = hr.nextSibling; while (n) { var nx = n.nextSibling; wrap.appendChild(n); n = nx; } }" +
+            "else { while (tmp.firstChild) { wrap.appendChild(tmp.firstChild); } }" +
+            "slot.appendChild(wrap);" +
+            "};</script>"
+    var result =
+        if (content.contains("</head>", ignoreCase = true)) {
+            content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
+        } else {
+            content + override
+        }
+    result =
+        if (result.contains("</body>", ignoreCase = true)) {
+            result.replaceFirst(Regex("</body>", RegexOption.IGNORE_CASE), "$bodyInject</body>")
+        } else {
+            result + bodyInject
+        }
+    return result
 }
 
 @Composable
