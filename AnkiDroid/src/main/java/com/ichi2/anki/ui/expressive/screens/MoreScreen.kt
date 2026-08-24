@@ -54,6 +54,7 @@ fun MoreScreen(
     onSync: () -> Unit = {},
 ) {
     var showHelp by remember { mutableStateOf(false) }
+    var showSupport by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val groups =
         listOf(
@@ -119,6 +120,7 @@ fun MoreScreen(
                                         "Settings" -> onOpenSettings()
                                         "Sync" -> onSync()
                                         "Help" -> showHelp = true
+                                        "Support AnkiDroid" -> showSupport = true
                                     }
                                 }.padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -183,6 +185,48 @@ fun MoreScreen(
     if (showHelp) {
         HelpDialog(onDismiss = { showHelp = false })
     }
+
+    if (showSupport) {
+        SupportDialog(onDismiss = { showSupport = false })
+    }
+}
+
+/** Support options mirroring the classic support dialog. */
+@Composable
+private fun SupportDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val entries =
+        listOf(
+            "Donate (OpenCollective)" to context.getString(R.string.link_opencollective_donate),
+            "Translate" to context.getString(R.string.link_translation),
+            "Contribute code" to context.getString(R.string.link_contribution),
+        )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Support AnkiDroid", style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                entries.forEach { (label, url) ->
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                                    )
+                                }.padding(vertical = 10.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+    )
 }
 
 /** Help entries mirroring the classic HelpDialog, opened in the browser. */

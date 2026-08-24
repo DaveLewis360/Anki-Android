@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
+import com.ichi2.anki.pages.toIntent
 import com.ichi2.anki.ui.expressive.components.ExpressiveBottomBar
 import com.ichi2.anki.ui.expressive.screens.BrowseScreen
 import com.ichi2.anki.ui.expressive.screens.HomeScreen
@@ -56,6 +57,8 @@ fun ExpressiveApp(
     var tab by remember { mutableIntStateOf(0) }
     var studyDeck by remember { mutableStateOf(initialDeck) }
     var showSettings by remember { mutableStateOf(false) }
+    var homeRefresh by remember { mutableIntStateOf(0) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = studyDeck != null) { studyDeck = null }
 
@@ -75,6 +78,23 @@ fun ExpressiveApp(
                 TabLayer(tabIndex = 0, currentTab = tab) {
                     HomeScreen(
                         onDeckClick = { did, name -> studyDeck = did to name },
+                        onAddCard = {
+                            context.startActivity(
+                                com.ichi2.anki.noteeditor.NoteEditorLauncher
+                                    .AddNote()
+                                    .toIntent(context),
+                            )
+                        },
+                        onDeckOptions = { did, filtered ->
+                            context.startActivity(
+                                com.ichi2.anki.common.destinations
+                                    .DeckOptionsDestination(
+                                        deckId = did,
+                                        isFiltered = filtered,
+                                    ).toIntent(context),
+                            )
+                        },
+                        refreshKey = homeRefresh,
                     )
                 }
                 TabLayer(tabIndex = 1, currentTab = tab) {
@@ -120,7 +140,10 @@ fun ExpressiveApp(
                     StudyScreen(
                         deckId = deckId,
                         deckName = deckName,
-                        onClose = { studyDeck = null },
+                        onClose = {
+                            studyDeck = null
+                            homeRefresh++
+                        },
                     )
                 }
             }

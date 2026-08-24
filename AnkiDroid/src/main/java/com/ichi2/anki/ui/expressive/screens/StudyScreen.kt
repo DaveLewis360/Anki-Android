@@ -36,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -116,6 +117,10 @@ fun StudyScreen(
     // restart the pipeline. The current card stays visible until the next one
     // is ready, so the loop never shows a blocking state between answers.
     var working by remember { mutableStateOf(false) }
+    var marked by remember { mutableStateOf(false) }
+    var flag by remember { mutableIntStateOf(0) }
+    var reloadOnResume by remember { mutableStateOf(false) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     fun loadNext() {
         scope.launch {
@@ -129,6 +134,8 @@ fun StudyScreen(
                         val remaining = counts.new + counts.lrn + counts.rev
                         if (sessionTotal < 0) sessionTotal = remaining
                         seconds = 0
+                        marked = card.marked
+                        flag = card.flag
                         StudyUiState.Question(card, remaining)
                     }
                 } catch (e: Exception) {
@@ -136,6 +143,31 @@ fun StudyScreen(
                 }
             working = false
         }
+    }
+
+    fun runStudyAction(block: suspend () -> Unit) {
+        if (working) return
+        working = true
+        scope.launch {
+            try {
+                block()
+            } catch (e: Exception) {
+                logFailure(e)
+            }
+            loadNext()
+        }
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && reloadOnResume) {
+                    reloadOnResume = false
+                    loadNext()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(deckId) {
@@ -185,6 +217,93 @@ fun StudyScreen(
             IconButton(onClick = onClose) {
                 Icon(painterResource(R.drawable.close_icon), contentDescription = "Close")
             }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            val qs = currentQueueStateOf(state)
+            StudyActionButton(
+                iconRes = R.drawable.ic_arrow_u_left_top,
+                label = "Undo",
+                enabled = !working,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = { runStudyAction { ExpressiveCollection.undoLast() } },
+            )
+            StudyActionButton(
+                iconRes = com.ichi2.anki.R.drawable.ic_star_black_24,
+                label = "Mark",
+                enabled = !working && qs != null,
+                tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = {
+                    if (qs != null && !working) {
+                        working = true
+                        scope.launch {
+                            try {
+                                marked = ExpressiveCollection.toggleMark(qs)
+                            } catch (e: Exception) {
+                                logFailure(e)
+                            }
+                            working = false
+                        }
+                    }
+                },
+            )
+            StudyActionButton(
+                iconRes = flagDrawable(flag),
+                label = "Flag",
+                enabled = !working && qs != null,
+                tint = androidx.compose.ui.graphics.Color.Unspecified,
+                onClick = {
+                    if (qs != null && !working) {
+                        working = true
+                        scope.launch {
+                            try {
+                                flag = ExpressiveCollection.cycleFlag(qs)
+                            } catch (e: Exception) {
+                                logFailure(e)
+                            }
+                            working = false
+                        }
+                    }
+                },
+            )
+            StudyActionButton(
+                iconRes = com.ichi2.anki.R.drawable.ic_edit_note,
+                label = "Edit",
+                enabled = !working && qs != null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = {
+                    if (qs != null) {
+                        reloadOnResume = true
+                        context.startActivity(
+                            com.ichi2.anki.noteeditor.NoteEditorLauncher
+                                .EditSelection(
+                                    cardIds = listOf(qs.topCard.id),
+                                    animation = com.ichi2.anki.common.ui.TransitionDirection.FADE,
+                                ).toIntent(context),
+                        )
+                    }
+                },
+            )
+            StudyActionButton(
+                iconRes = com.ichi2.anki.R.drawable.ic_card_state_buried,
+                label = "Bury",
+                enabled = !working && qs != null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = {
+                    if (qs != null) runStudyAction { ExpressiveCollection.buryCurrent(qs) }
+                },
+            )
+            StudyActionButton(
+                iconRes = com.ichi2.anki.R.drawable.ic_card_state_suspended,
+                label = "Suspend",
+                enabled = !working && qs != null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = {
+                    if (qs != null) runStudyAction { ExpressiveCollection.suspendCurrent(qs) }
+                },
+            )
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (val s = state) {
@@ -250,6 +369,43 @@ fun StudyScreen(
                 Spacer(Modifier.height(16.dp))
             }
         }
+    }
+}
+
+/** Current queue state regardless of question/answered phase, null while loading. */
+private fun currentQueueStateOf(state: StudyUiState): com.ichi2.anki.libanki.sched.CurrentQueueState? =
+    when (state) {
+        is StudyUiState.Question -> state.card.queueState
+        is StudyUiState.Answered -> state.card.card.queueState
+        else -> null
+    }
+
+private fun flagDrawable(flag: Int): Int =
+    when (flag) {
+        1 -> com.ichi2.anki.R.drawable.ic_flag_red
+        2 -> com.ichi2.anki.R.drawable.ic_flag_orange
+        3 -> com.ichi2.anki.R.drawable.ic_flag_green
+        4 -> com.ichi2.anki.R.drawable.ic_flag_blue
+        5 -> com.ichi2.anki.R.drawable.ic_flag_pink
+        6 -> com.ichi2.anki.R.drawable.ic_flag_turquoise
+        7 -> com.ichi2.anki.R.drawable.ic_flag_purple
+        else -> com.ichi2.anki.R.drawable.ic_flag_transparent
+    }
+
+@Composable
+private fun StudyActionButton(
+    iconRes: Int,
+    label: String,
+    enabled: Boolean,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    IconButton(enabled = enabled, onClick = onClick) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = label,
+            tint = tint.copy(alpha = if (enabled) 1f else 0.4f),
+        )
     }
 }
 

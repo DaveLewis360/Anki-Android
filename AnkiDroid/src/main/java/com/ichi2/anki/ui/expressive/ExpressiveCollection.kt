@@ -37,6 +37,8 @@ data class StudyCardUi(
     val queueState: CurrentQueueState,
     val frontHtml: String,
     val baseUrl: String,
+    val marked: Boolean,
+    val flag: Int,
 )
 
 enum class UiCardState { NEW, LEARNING, REVIEW, SUSPENDED }
@@ -102,6 +104,23 @@ object ExpressiveCollection {
         decks.setCollapsed(did, collapsed, SetDeckCollapsedRequest.Scope.REVIEWER)
     }
 
+    suspend fun renameDeck(
+        did: DeckId,
+        newName: String,
+    ) = withCol {
+        decks.rename(did, newName)
+    }
+
+    suspend fun deleteDeck(did: DeckId) =
+        withCol {
+            decks.remove(listOf(did))
+        }
+
+    suspend fun createDeck(name: String): DeckId =
+        withCol {
+            decks.id(name)
+        }
+
     suspend fun selectDeck(did: DeckId) =
         withCol {
             decks.select(did)
@@ -116,6 +135,8 @@ object ExpressiveCollection {
                 queueState = state,
                 frontHtml = renderContext.renderCard(this, state.topCard, SingleCardSide.FRONT).html,
                 baseUrl = "file://${media.dir}/",
+                marked = state.topCard.note(this).hasTag(this, "marked"),
+                flag = state.topCard.userFlag(),
             )
         }
 
@@ -136,6 +157,38 @@ object ExpressiveCollection {
     ) = withCol {
         sched.answerCard(state, rating)
     }
+
+    /** Toggles the "marked" tag on the current card; returns the new marked state. */
+    suspend fun toggleMark(state: CurrentQueueState): Boolean =
+        withCol {
+            val note = state.topCard.note(this)
+            if (note.hasTag(this, "marked")) note.removeTag("marked") else note.addTag("marked")
+            updateNote(note)
+            note.hasTag(this, "marked")
+        }
+
+    /** Cycles the card flag 0 -> 1 .. 7 -> 0; returns the new flag. */
+    suspend fun cycleFlag(state: CurrentQueueState): Int =
+        withCol {
+            val next = (state.topCard.userFlag() + 1) % 8
+            setUserFlagForCards(listOf(state.topCard.id), next)
+            next
+        }
+
+    suspend fun buryCurrent(state: CurrentQueueState) =
+        withCol {
+            sched.buryCards(listOf(state.topCard.id))
+        }
+
+    suspend fun suspendCurrent(state: CurrentQueueState) =
+        withCol {
+            sched.suspendCards(listOf(state.topCard.id))
+        }
+
+    suspend fun undoLast() =
+        withCol {
+            undo()
+        }
 
     /** Real statistics for the Stats tab, computed from the collection. */
     suspend fun loadStats(): ExpressiveStats =

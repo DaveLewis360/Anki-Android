@@ -10,8 +10,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -145,12 +147,14 @@ private fun DividerDot() {
 }
 
 /** One deck rendered as an expressive tonal card. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DeckCard(
     deck: UiDeck,
     selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
 ) {
     val interaction = remember { MutableInteractionSource() }
     Surface(
@@ -163,7 +167,12 @@ fun DeckCard(
                     top = 5.dp,
                     bottom = 5.dp,
                 ).pressScale(interaction)
-                .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+                .combinedClickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
         shape = MaterialTheme.shapes.large,
         color =
             if (selected) {
