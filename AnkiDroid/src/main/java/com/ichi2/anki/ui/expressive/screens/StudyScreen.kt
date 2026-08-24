@@ -3,17 +3,10 @@
 package com.ichi2.anki.ui.expressive.screens
 
 import android.webkit.WebView
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,7 +38,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -355,7 +351,7 @@ fun StudyScreen(
                 },
             )
             StudyActionButton(
-                iconRes = if (flag == 0) R.drawable.ic_flag_neutral else flagDrawable(flag),
+                iconRes = if (flag == 0) R.drawable.ic_flag_neutral_filled else flagDrawable(flag),
                 label = "Flag",
                 enabled = !working && qs != null,
                 tint =
@@ -525,51 +521,73 @@ private fun CardPane(
     // The back template already contains the front side ({{FrontSide}}), so render
     // exactly one side at a time — concatenating them duplicated the question.
     val html = themedCardHtml(backHtml ?: frontHtml)
-    val positionalEnter: androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntOffset> =
-        spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow,
-        )
-    AnimatedContent(
-        targetState = html,
-        transitionSpec = {
-            when (direction) {
-                // Reveal: the answer rises into place with a gentle bounce
-                0 ->
-                    (fadeIn(tween(160)) + slideInVertically(positionalEnter) { it / 5 })
-                        .togetherWith(fadeOut(tween(120)) + scaleOut(targetScale = 0.985f, animationSpec = tween(120)))
-                // Back (Again): the card returns from the left
-                -1 ->
-                    (fadeIn(tween(160)) + slideInHorizontally(positionalEnter) { -it / 2 })
-                        .togetherWith(fadeOut(tween(110)) + slideOutHorizontally(tween(150)) { it / 3 })
-                // Forward (Hard/Good/Easy): the deck moves on to the right
-                else ->
-                    (fadeIn(tween(160)) + slideInHorizontally(positionalEnter) { it / 2 })
-                        .togetherWith(fadeOut(tween(110)) + slideOutHorizontally(tween(150)) { -it / 3 })
+    val context = LocalContext.current
+    val webView =
+        remember {
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.allowFileAccess = true
+                settings.loadWithOverviewMode = true
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
             }
-        },
-        label = "card",
-    ) { content ->
+        }
+    var containerWidth by remember { mutableIntStateOf(0) }
+    val cardTranslationX =
+        remember {
+            androidx.compose.animation.core
+                .Animatable(0f)
+        }
+    val cardAlphaAnim =
+        remember {
+            androidx.compose.animation.core
+                .Animatable(1f)
+        }
+    var loadedOnce by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose { webView.destroy() }
+    }
+
+    LaunchedEffect(html, direction) {
+        if (!loadedOnce) {
+            loadedOnce = true
+            webView.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
+            return@LaunchedEffect
+        }
+        val width = containerWidth.toFloat().coerceAtLeast(1f)
+        val enterSpring =
+            spring<Float>(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+                visibilityThreshold = 0.1f,
+            )
+        // 1. slide the current card out and fade it
+        cardAlphaAnim.animateTo(0f, tween(110))
+        cardTranslationX.animateTo(-direction * width / 3f, tween(150))
+        // 2. swap the content while the pane is out of sight
+        webView.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
+        // 3. slide the new card in from the opposite side with a soft bounce
+        cardTranslationX.snapTo(direction * width / 2f)
+        cardAlphaAnim.snapTo(1f)
+        cardTranslationX.animateTo(0f, enterSpring)
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onSizeChanged { containerWidth = it.width },
+    ) {
         AndroidView(
+            factory = { webView },
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp),
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.javaScriptEnabled = true
-                    settings.allowFileAccess = true
-                    settings.loadWithOverviewMode = true
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    isVerticalScrollBarEnabled = false
-                }
-            },
-            update = { webView ->
-                if (webView.tag != content) {
-                    webView.tag = content
-                    webView.loadDataWithBaseURL(baseUrl, content, "text/html", "utf-8", null)
-                }
-            },
+                    .padding(horizontal = 20.dp)
+                    .graphicsLayer {
+                        translationX = cardTranslationX.value
+                        alpha = cardAlphaAnim.value
+                    },
         )
     }
 }
