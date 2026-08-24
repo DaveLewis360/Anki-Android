@@ -24,16 +24,23 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveSettings
+import com.ichi2.anki.ui.expressive.components.GestureAction
 import com.ichi2.anki.ui.expressive.theme.expressivePalettes
 import com.ichi2.anki.ui.expressive.theme.supportsDynamicColor
 
@@ -189,6 +197,27 @@ fun SettingsScreen(
             }
         }
 
+        SectionCard(title = "GESTURES") {
+            GestureSettingRow("Tap on question", settings.gestureTapQuestion) {
+                onChange(settings.copy(gestureTapQuestion = it))
+            }
+            GestureSettingRow("Tap on answer", settings.gestureTapAnswer) {
+                onChange(settings.copy(gestureTapAnswer = it))
+            }
+            GestureSettingRow("Swipe left", settings.gestureSwipeLeft) {
+                onChange(settings.copy(gestureSwipeLeft = it))
+            }
+            GestureSettingRow("Swipe right", settings.gestureSwipeRight) {
+                onChange(settings.copy(gestureSwipeRight = it))
+            }
+            GestureSettingRow("Double tap", settings.gestureDoubleTap) {
+                onChange(settings.copy(gestureDoubleTap = it))
+            }
+            GestureSettingRow("Long press", settings.gestureLongPress) {
+                onChange(settings.copy(gestureLongPress = it))
+            }
+        }
+
         SectionCard(title = "SYNC") {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 InfoRow(iconRes = R.drawable.ic_sync, title = "AnkiWeb account", subtitle = "Sync your collection")
@@ -278,6 +307,63 @@ private fun InfoRow(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun GestureSettingRow(
+    label: String,
+    currentKey: String,
+    onSelect: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(label) },
+        trailingContent = {
+            Text(
+                GestureAction.fromKey(currentKey).label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        },
+        modifier =
+            Modifier
+                .clip(MaterialTheme.shapes.medium)
+                .clickable { open = true },
+    )
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(label, style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column {
+                    GestureAction.entries.forEach { action ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelect(action.key)
+                                    open = false
+                                }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = action.key == currentKey,
+                                onClick = {
+                                    onSelect(action.key)
+                                    open = false
+                                },
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(action.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { open = false }) { Text("Close") }
+            },
         )
     }
 }

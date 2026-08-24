@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,8 +49,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.ichi2.anki.R
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
+import com.ichi2.anki.ui.expressive.ExpressiveSettings
 import com.ichi2.anki.ui.expressive.StudyCardUi
 import com.ichi2.anki.ui.expressive.components.AnswerButtons
+import com.ichi2.anki.ui.expressive.components.CardGestureArea
+import com.ichi2.anki.ui.expressive.components.GestureAction
 import com.ichi2.anki.ui.expressive.components.ShowAnswerButton
 import com.ichi2.anki.ui.expressive.components.StudyTopBar
 import kotlinx.coroutines.delay
@@ -106,10 +111,12 @@ fun StudyScreen(
     deckId: DeckId,
     deckName: String,
     onClose: () -> Unit,
+    gestures: ExpressiveSettings,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<StudyUiState>(StudyUiState.Loading) }
+    var gestureMenu by remember { mutableStateOf(false) }
     var sessionTotal by remember { mutableIntStateOf(-1) }
     var seconds by remember { mutableIntStateOf(0) }
 
@@ -155,6 +162,95 @@ fun StudyScreen(
                 logFailure(e)
             }
             loadNext()
+        }
+    }
+
+    fun revealCurrent() {
+        val s = state
+        if (working || s !is StudyUiState.Question) return
+        working = true
+        scope.launch {
+            state =
+                try {
+                    val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
+                    StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
+                } catch (e: Exception) {
+                    StudyUiState.Error(e.message ?: "Failed to reveal card")
+                }
+            working = false
+        }
+    }
+
+    fun grade(rating: anki.scheduler.CardAnswer.Rating) {
+        val s = state
+        if (working || s !is StudyUiState.Answered) return
+        working = true
+        scope.launch {
+            try {
+                ExpressiveCollection.answer(s.card.card.queueState, rating)
+            } catch (e: Exception) {
+                logFailure(e)
+            }
+            loadNext()
+        }
+    }
+
+    fun performGesture(actionKey: String) {
+        fun currentQueue(): com.ichi2.anki.libanki.sched.CurrentQueueState? = currentQueueStateOf(state)
+        when (GestureAction.fromKey(actionKey)) {
+            GestureAction.SHOW_ANSWER -> revealCurrent()
+            GestureAction.GOOD -> grade(anki.scheduler.CardAnswer.Rating.GOOD)
+            GestureAction.HARD -> grade(anki.scheduler.CardAnswer.Rating.HARD)
+            GestureAction.AGAIN -> grade(anki.scheduler.CardAnswer.Rating.AGAIN)
+            GestureAction.EASY -> grade(anki.scheduler.CardAnswer.Rating.EASY)
+            GestureAction.UNDO -> runStudyAction { ExpressiveCollection.undoLast() }
+            GestureAction.MARK -> {
+                val qs = currentQueue() ?: return
+                if (working) return
+                working = true
+                scope.launch {
+                    try {
+                        marked = ExpressiveCollection.toggleMark(qs)
+                    } catch (e: Exception) {
+                        logFailure(e)
+                    }
+                    working = false
+                }
+            }
+            GestureAction.FLAG -> {
+                val qs = currentQueue() ?: return
+                if (working) return
+                working = true
+                scope.launch {
+                    try {
+                        flag = ExpressiveCollection.cycleFlag(qs)
+                    } catch (e: Exception) {
+                        logFailure(e)
+                    }
+                    working = false
+                }
+            }
+            GestureAction.EDIT -> {
+                val qs = currentQueue() ?: return
+                reloadOnResume = true
+                context.startActivity(
+                    com.ichi2.anki.noteeditor.NoteEditorLauncher
+                        .EditSelection(
+                            cardIds = listOf(qs.topCard.id),
+                            animation = com.ichi2.anki.common.ui.TransitionDirection.FADE,
+                        ).toIntent(context),
+                )
+            }
+            GestureAction.BURY -> {
+                val qs = currentQueue() ?: return
+                runStudyAction { ExpressiveCollection.buryCurrent(qs) }
+            }
+            GestureAction.SUSPEND -> {
+                val qs = currentQueue() ?: return
+                runStudyAction { ExpressiveCollection.suspendCurrent(qs) }
+            }
+            GestureAction.MENU -> gestureMenu = true
+            GestureAction.NONE -> {}
         }
     }
 
@@ -305,7 +401,18 @@ fun StudyScreen(
                 },
             )
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        CardGestureArea(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            onTap = {
+                performGesture(
+                    if (state is StudyUiState.Question) gestures.gestureTapQuestion else gestures.gestureTapAnswer,
+                )
+            },
+            onDoubleTap = { performGesture(gestures.gestureDoubleTap) },
+            onLongPress = { performGesture(gestures.gestureLongPress) },
+            onSwipeLeft = { performGesture(gestures.gestureSwipeLeft) },
+            onSwipeRight = { performGesture(gestures.gestureSwipeRight) },
+        ) {
             when (val s = state) {
                 is StudyUiState.Loading -> LoadingIndicator()
                 is StudyUiState.Error -> ErrorPane(s.message)
@@ -323,6 +430,15 @@ fun StudyScreen(
                         baseUrl = s.card.card.baseUrl,
                     )
             }
+            if (gestureMenu) {
+                GestureActionMenu(
+                    onAction = { action ->
+                        gestureMenu = false
+                        performGesture(action)
+                    },
+                    onDismiss = { gestureMenu = false },
+                )
+            }
         }
         Box(Modifier.windowInsetsPadding(WindowInsets.navigationBars)) {
             Column {
@@ -330,39 +446,13 @@ fun StudyScreen(
                     is StudyUiState.Question ->
                         ShowAnswerButton(
                             enabled = !working,
-                            onClick = {
-                                if (!working) {
-                                    working = true
-                                    scope.launch {
-                                        state =
-                                            try {
-                                                val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
-                                                StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
-                                            } catch (e: Exception) {
-                                                StudyUiState.Error(e.message ?: "Failed to reveal card")
-                                            }
-                                        working = false
-                                    }
-                                }
-                            },
+                            onClick = { revealCurrent() },
                         )
                     is StudyUiState.Answered ->
                         AnswerButtons(
                             intervals = s.card.intervals,
                             enabled = !working,
-                            onAnswer = { ratingIndex ->
-                                if (!working) {
-                                    working = true
-                                    scope.launch {
-                                        try {
-                                            ExpressiveCollection.answer(s.card.card.queueState, ratingFor(ratingIndex))
-                                        } catch (e: Exception) {
-                                            logFailure(e)
-                                        }
-                                        loadNext()
-                                    }
-                                }
-                            },
+                            onAnswer = { ratingIndex -> grade(ratingFor(ratingIndex)) },
                         )
                     else -> {}
                 }
@@ -532,6 +622,28 @@ private fun CongratsPane(onClose: () -> Unit) {
                 "Back to decks",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
+            )
+        }
+    }
+}
+
+/** Quick action menu opened by the long-press gesture. */
+@Composable
+private fun GestureActionMenu(
+    onAction: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
+        listOf(
+            GestureAction.FLAG,
+            GestureAction.EDIT,
+            GestureAction.BURY,
+            GestureAction.SUSPEND,
+            GestureAction.UNDO,
+        ).forEach { action ->
+            DropdownMenuItem(
+                text = { Text(action.label) },
+                onClick = { onAction(action.key) },
             )
         }
     }

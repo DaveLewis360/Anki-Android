@@ -140,6 +140,7 @@ fun ExpressiveApp(
                     StudyScreen(
                         deckId = deckId,
                         deckName = deckName,
+                        gestures = settings,
                         onClose = {
                             studyDeck = null
                             homeRefresh++
