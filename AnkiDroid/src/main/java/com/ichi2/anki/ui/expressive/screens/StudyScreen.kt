@@ -4,10 +4,15 @@ package com.ichi2.anki.ui.expressive.screens
 
 import android.webkit.WebView
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -117,6 +122,8 @@ fun StudyScreen(
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<StudyUiState>(StudyUiState.Loading) }
     var gestureMenu by remember { mutableStateOf(false) }
+    // Card slide direction for the transition: 0 = reveal, 1 = forward, -1 = back
+    var slideDirection by remember { mutableIntStateOf(0) }
     var sessionTotal by remember { mutableIntStateOf(-1) }
     var seconds by remember { mutableIntStateOf(0) }
 
@@ -168,6 +175,7 @@ fun StudyScreen(
     fun revealCurrent() {
         val s = state
         if (working || s !is StudyUiState.Question) return
+        slideDirection = 0
         working = true
         scope.launch {
             state =
@@ -184,6 +192,7 @@ fun StudyScreen(
     fun grade(rating: anki.scheduler.CardAnswer.Rating) {
         val s = state
         if (working || s !is StudyUiState.Answered) return
+        slideDirection = if (rating == anki.scheduler.CardAnswer.Rating.AGAIN) -1 else 1
         working = true
         scope.launch {
             try {
@@ -346,10 +355,15 @@ fun StudyScreen(
                 },
             )
             StudyActionButton(
-                iconRes = flagDrawable(flag),
+                iconRes = if (flag == 0) R.drawable.ic_flag_neutral else flagDrawable(flag),
                 label = "Flag",
                 enabled = !working && qs != null,
-                tint = androidx.compose.ui.graphics.Color.Unspecified,
+                tint =
+                    if (flag == 0) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        androidx.compose.ui.graphics.Color.Unspecified
+                    },
                 onClick = {
                     if (qs != null && !working) {
                         working = true
@@ -383,7 +397,7 @@ fun StudyScreen(
                 },
             )
             StudyActionButton(
-                iconRes = com.ichi2.anki.R.drawable.ic_card_state_buried,
+                iconRes = com.ichi2.anki.R.drawable.ic_hide,
                 label = "Bury",
                 enabled = !working && qs != null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -392,7 +406,7 @@ fun StudyScreen(
                 },
             )
             StudyActionButton(
-                iconRes = com.ichi2.anki.R.drawable.ic_card_state_suspended,
+                iconRes = com.ichi2.anki.R.drawable.round_pause_24,
                 label = "Suspend",
                 enabled = !working && qs != null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -422,12 +436,14 @@ fun StudyScreen(
                         frontHtml = s.card.frontHtml,
                         backHtml = null,
                         baseUrl = s.card.baseUrl,
+                        direction = slideDirection,
                     )
                 is StudyUiState.Answered ->
                     CardPane(
                         frontHtml = s.card.card.frontHtml,
                         backHtml = s.card.backHtml,
                         baseUrl = s.card.card.baseUrl,
+                        direction = slideDirection,
                     )
             }
             if (gestureMenu) {
@@ -479,7 +495,7 @@ private fun flagDrawable(flag: Int): Int =
         5 -> com.ichi2.anki.R.drawable.ic_flag_pink
         6 -> com.ichi2.anki.R.drawable.ic_flag_turquoise
         7 -> com.ichi2.anki.R.drawable.ic_flag_purple
-        else -> com.ichi2.anki.R.drawable.ic_flag_transparent
+        else -> com.ichi2.anki.R.drawable.ic_flag_lightgrey
     }
 
 @Composable
@@ -504,13 +520,34 @@ private fun CardPane(
     frontHtml: String,
     backHtml: String?,
     baseUrl: String,
+    direction: Int,
 ) {
     // The back template already contains the front side ({{FrontSide}}), so render
     // exactly one side at a time — concatenating them duplicated the question.
     val html = themedCardHtml(backHtml ?: frontHtml)
+    val positionalEnter: androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntOffset> =
+        spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        )
     AnimatedContent(
         targetState = html,
-        transitionSpec = { (fadeIn(tween(140)) + slideInVertically(tween(140)) { it / 12 }).togetherWith(fadeOut(tween(90))) },
+        transitionSpec = {
+            when (direction) {
+                // Reveal: the answer rises into place with a gentle bounce
+                0 ->
+                    (fadeIn(tween(160)) + slideInVertically(positionalEnter) { it / 5 })
+                        .togetherWith(fadeOut(tween(120)) + scaleOut(targetScale = 0.985f, animationSpec = tween(120)))
+                // Back (Again): the card returns from the left
+                -1 ->
+                    (fadeIn(tween(160)) + slideInHorizontally(positionalEnter) { -it / 2 })
+                        .togetherWith(fadeOut(tween(110)) + slideOutHorizontally(tween(150)) { it / 3 })
+                // Forward (Hard/Good/Easy): the deck moves on to the right
+                else ->
+                    (fadeIn(tween(160)) + slideInHorizontally(positionalEnter) { it / 2 })
+                        .togetherWith(fadeOut(tween(110)) + slideOutHorizontally(tween(150)) { -it / 3 })
+            }
+        },
         label = "card",
     ) { content ->
         AndroidView(
