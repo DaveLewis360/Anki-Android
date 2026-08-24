@@ -182,10 +182,41 @@ fun StudyScreen(
                 val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
                 // Inject the answer into the live WebView: the question stays exactly
                 // where it is, only the answer animates in below it.
-                cardWebView.evaluateJavascript(
-                    "window.expressiveShowAnswer(" + org.json.JSONObject.quote(back) + ")",
-                    null,
-                )
+                // Self-contained IIFE — creates the slot if missing and animates with
+                // inline transitions, so it never depends on page-injected helpers.
+                val js =
+                    """
+                    (function(html){
+                      var slot = document.getElementById('expressive-answer');
+                      if (!slot) {
+                        slot = document.createElement('div');
+                        slot.id = 'expressive-answer';
+                        document.body.appendChild(slot);
+                      }
+                      var tmp = document.createElement('div');
+                      tmp.innerHTML = html;
+                      var wrap = document.createElement('div');
+                      wrap.className = 'expressive-answer-inner';
+                      wrap.style.opacity = '0';
+                      wrap.style.transform = 'translateY(24px)';
+                      var hr = tmp.querySelector('hr#answer');
+                      if (hr) {
+                        wrap.appendChild(hr.cloneNode(true));
+                        var n = hr.nextSibling;
+                        while (n) { var nx = n.nextSibling; wrap.appendChild(n); n = nx; }
+                      } else {
+                        while (tmp.firstChild) { wrap.appendChild(tmp.firstChild); }
+                      }
+                      slot.appendChild(wrap);
+                      requestAnimationFrame(function(){
+                        wrap.style.transition =
+                          'opacity 300ms cubic-bezier(0.2, 0, 0, 1), transform 300ms cubic-bezier(0.2, 0, 0, 1)';
+                        wrap.style.opacity = '1';
+                        wrap.style.transform = 'none';
+                      });
+                    })(${org.json.JSONObject.quote(back)});
+                    """.trimIndent()
+                cardWebView.evaluateJavascript(js, null)
                 state = StudyUiState.Answered(AnsweredCard(s.card, intervals), s.remaining)
             } catch (e: Exception) {
                 state = StudyUiState.Error(e.message ?: "Failed to reveal card")
