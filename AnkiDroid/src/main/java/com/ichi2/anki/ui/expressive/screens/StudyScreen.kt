@@ -3,10 +3,6 @@
 package com.ichi2.anki.ui.expressive.screens
 
 import android.webkit.WebView
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,9 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -297,7 +291,8 @@ fun StudyScreen(
             // from the very first question and glides forward on every answer.
             progress =
                 if (sessionTotal > 0) {
-                    (sessionTotal - state.remainingCards() + 1f) / (sessionTotal + 1f)
+                    // Cap below 1.0 so the wavy indicator never flattens out mid-session
+                    ((sessionTotal - state.remainingCards() + 1f) / (sessionTotal + 1f)).coerceIn(0.03f, 0.97f)
                 } else {
                     0f
                 },
@@ -520,7 +515,7 @@ private fun CardPane(
 ) {
     // The back template already contains the front side ({{FrontSide}}), so render
     // exactly one side at a time — concatenating them duplicated the question.
-    val html = themedCardHtml(backHtml ?: frontHtml)
+    val html = themedCardHtml(backHtml ?: frontHtml, direction)
     val context = LocalContext.current
     val webView =
         remember {
@@ -532,64 +527,22 @@ private fun CardPane(
                 isVerticalScrollBarEnabled = false
             }
         }
-    var containerWidth by remember { mutableIntStateOf(0) }
-    val cardTranslationX =
-        remember {
-            androidx.compose.animation.core
-                .Animatable(0f)
-        }
-    val cardAlphaAnim =
-        remember {
-            androidx.compose.animation.core
-                .Animatable(1f)
-        }
-    var loadedOnce by remember { mutableStateOf(false) }
-
     DisposableEffect(Unit) {
         onDispose { webView.destroy() }
     }
-
-    LaunchedEffect(html, direction) {
-        if (!loadedOnce) {
-            loadedOnce = true
-            webView.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
-            return@LaunchedEffect
-        }
-        val width = containerWidth.toFloat().coerceAtLeast(1f)
-        val enterSpring =
-            spring<Float>(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow,
-                visibilityThreshold = 0.1f,
-            )
-        // 1. slide the current card out and fade it
-        cardAlphaAnim.animateTo(0f, tween(110))
-        cardTranslationX.animateTo(-direction * width / 3f, tween(150))
-        // 2. swap the content while the pane is out of sight
-        webView.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
-        // 3. slide the new card in from the opposite side with a soft bounce
-        cardTranslationX.snapTo(direction * width / 2f)
-        cardAlphaAnim.snapTo(1f)
-        cardTranslationX.animateTo(0f, enterSpring)
-    }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .onSizeChanged { containerWidth = it.width },
-    ) {
-        AndroidView(
-            factory = { webView },
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp)
-                    .graphicsLayer {
-                        translationX = cardTranslationX.value
-                        alpha = cardAlphaAnim.value
-                    },
-        )
-    }
+    AndroidView(
+        factory = { webView },
+        update = { view ->
+            if (view.tag != html) {
+                view.tag = html
+                view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
+            }
+        },
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+    )
 }
 
 /**
@@ -598,18 +551,39 @@ private fun CardPane(
  * The stock `flashcard.css` hard-codes a black background with white text, which
  * ignores the expressive theme; the override below (placed after the notetype CSS)
  * re-colors the page from MaterialTheme so light/dark/palettes/dynamic color all apply.
+ *
+ * The enter animation runs as CSS keyframes INSIDE the WebView, so the content is
+ * already animating on the very first painted frame — no async race with the
+ * WebView's own loading, which is what made container-level animation glitch.
+re-colors the page from MaterialTheme so light/dark/palettes/dynamic color all apply.
  */
 @Composable
-private fun themedCardHtml(content: String): String {
+private fun themedCardHtml(
+    content: String,
+    direction: Int,
+): String {
     val bg = MaterialTheme.colorScheme.background
     val fg = MaterialTheme.colorScheme.onBackground
     val bgHex = "#%06X".format(0xFFFFFF and bg.toArgb())
     val fgHex = "#%06X".format(0xFFFFFF and fg.toArgb())
+    val enterKeyframes =
+        when (direction) {
+            0 -> "ankiRise"
+            -1 -> "ankiSlideBack"
+            else -> "ankiSlideForward"
+        }
     val override =
         "<style id=\"expressive-theme\">" +
             "html, body { background-color: $bgHex !important; }" +
             "body, #content, #qa, .card { color: $fgHex !important; background-color: transparent !important; }" +
             "img { max-width: 100%; height: auto; }" +
+            "@keyframes ankiRise { from { opacity: 0; transform: translateY(28px); } " +
+            "to { opacity: 1; transform: translateY(0); } }" +
+            "@keyframes ankiSlideForward { from { opacity: 0; transform: translateX(56px); } " +
+            "to { opacity: 1; transform: translateX(0); } }" +
+            "@keyframes ankiSlideBack { from { opacity: 0; transform: translateX(-56px); } " +
+            "to { opacity: 1; transform: translateX(0); } }" +
+            "#content { animation: $enterKeyframes 320ms cubic-bezier(0.2, 0, 0, 1) both; }" +
             "</style>"
     return if (content.contains("</head>", ignoreCase = true)) {
         content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
