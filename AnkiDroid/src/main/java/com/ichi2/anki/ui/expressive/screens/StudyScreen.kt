@@ -54,9 +54,18 @@ import com.ichi2.anki.ui.expressive.components.StudyTopBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** How the next rendered card page should enter. */
+enum class CardTransition {
+    QUESTION_RISE,
+    QUESTION_FORWARD,
+    QUESTION_BACK,
+    ANSWER_REVEAL,
+}
+
 /** One card in the study session. */
 data class AnsweredCard(
     val card: StudyCardUi,
+    val backHtml: String,
     val intervals: List<String>,
 )
 
@@ -124,17 +133,6 @@ fun StudyScreen(
     var flag by remember { mutableIntStateOf(0) }
     var reloadOnResume by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    val cardWebView =
-        remember {
-            android.webkit.WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.allowFileAccess = true
-                settings.loadWithOverviewMode = true
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                isVerticalScrollBarEnabled = false
-            }
-        }
-    DisposableEffect(Unit) { onDispose { cardWebView.destroy() } }
 
     fun loadNext() {
         scope.launch {
@@ -178,49 +176,16 @@ fun StudyScreen(
         slideDirection = 0
         working = true
         scope.launch {
-            try {
-                val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
-                // Inject the answer into the live WebView: the question stays exactly
-                // where it is, only the answer animates in below it.
-                // Self-contained IIFE — creates the slot if missing and animates with
-                // inline transitions, so it never depends on page-injected helpers.
-                val js =
-                    """
-                    (function(html){
-                      var slot = document.getElementById('expressive-answer');
-                      if (!slot) {
-                        slot = document.createElement('div');
-                        slot.id = 'expressive-answer';
-                        document.body.appendChild(slot);
-                      }
-                      var tmp = document.createElement('div');
-                      tmp.innerHTML = html;
-                      var wrap = document.createElement('div');
-                      wrap.className = 'expressive-answer-inner';
-                      wrap.style.opacity = '0';
-                      wrap.style.transform = 'translateY(24px)';
-                      var hr = tmp.querySelector('hr#answer');
-                      if (hr) {
-                        wrap.appendChild(hr.cloneNode(true));
-                        var n = hr.nextSibling;
-                        while (n) { var nx = n.nextSibling; wrap.appendChild(n); n = nx; }
-                      } else {
-                        while (tmp.firstChild) { wrap.appendChild(tmp.firstChild); }
-                      }
-                      slot.appendChild(wrap);
-                      requestAnimationFrame(function(){
-                        wrap.style.transition =
-                          'opacity 300ms cubic-bezier(0.2, 0, 0, 1), transform 300ms cubic-bezier(0.2, 0, 0, 1)';
-                        wrap.style.opacity = '1';
-                        wrap.style.transform = 'none';
-                      });
-                    })(${org.json.JSONObject.quote(back)});
-                    """.trimIndent()
-                cardWebView.evaluateJavascript(js, null)
-                state = StudyUiState.Answered(AnsweredCard(s.card, intervals), s.remaining)
-            } catch (e: Exception) {
-                state = StudyUiState.Error(e.message ?: "Failed to reveal card")
-            }
+            state =
+                try {
+                    val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
+                    // Navigation-based reveal: the themed back page animates its answer
+                    // part in with CSS on the first painted frame — deterministic for
+                    // every template, no dependency on live-page state.
+                    StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
+                } catch (e: Exception) {
+                    StudyUiState.Error(e.message ?: "Failed to reveal card")
+                }
             working = false
         }
     }
@@ -464,23 +429,29 @@ fun StudyScreen(
             onSwipeLeft = { performGesture(gestures.gestureSwipeLeft) },
             onSwipeRight = { performGesture(gestures.gestureSwipeRight) },
         ) {
+            val questionKind =
+                when (slideDirection) {
+                    -1 -> CardTransition.QUESTION_BACK
+                    1 -> CardTransition.QUESTION_FORWARD
+                    else -> CardTransition.QUESTION_RISE
+                }
             when (val s = state) {
                 is StudyUiState.Loading -> LoadingIndicator()
                 is StudyUiState.Error -> ErrorPane(s.message)
                 is StudyUiState.Finished -> CongratsPane(onClose)
                 is StudyUiState.Question ->
                     CardPane(
-                        paneWebView = cardWebView,
                         frontHtml = s.card.frontHtml,
+                        backHtml = null,
                         baseUrl = s.card.baseUrl,
-                        direction = slideDirection,
+                        kind = questionKind,
                     )
                 is StudyUiState.Answered ->
                     CardPane(
-                        paneWebView = cardWebView,
                         frontHtml = s.card.card.frontHtml,
+                        backHtml = s.card.backHtml,
                         baseUrl = s.card.card.baseUrl,
-                        direction = slideDirection,
+                        kind = CardTransition.ANSWER_REVEAL,
                     )
             }
             if (gestureMenu) {
@@ -554,14 +525,32 @@ private fun StudyActionButton(
 
 @Composable
 private fun CardPane(
-    paneWebView: WebView,
     frontHtml: String,
+    backHtml: String?,
     baseUrl: String,
-    direction: Int,
+    kind: CardTransition,
 ) {
-    val html = themedCardHtml(frontHtml, direction)
+    val context = LocalContext.current
+    val webView =
+        remember {
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.allowFileAccess = true
+                settings.loadWithOverviewMode = true
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
+            }
+        }
+    DisposableEffect(Unit) {
+        onDispose { webView.destroy() }
+    }
+    // The back template already contains the front side ({{FrontSide}}), so render
+    // exactly one side at a time. The themed page carries its own CSS enter
+    // animation, which runs from the first painted frame — deterministic for
+    // every template, no dependency on live WebView state.
+    val html = themedCardHtml(backHtml ?: frontHtml, kind)
     AndroidView(
-        factory = { paneWebView },
+        factory = { webView },
         update = { view ->
             if (view.tag != html) {
                 view.tag = html
@@ -585,64 +574,57 @@ private fun CardPane(
  * The enter animation runs as CSS keyframes INSIDE the WebView, so the content is
  * already animating on the very first painted frame — no async race with the
  * WebView's own loading, which is what made container-level animation glitch.
-re-colors the page from MaterialTheme so light/dark/palettes/dynamic color all apply.
  */
 @Composable
 private fun themedCardHtml(
     content: String,
-    direction: Int,
+    kind: CardTransition,
 ): String {
     val bg = MaterialTheme.colorScheme.background
     val fg = MaterialTheme.colorScheme.onBackground
     val bgHex = "#%06X".format(0xFFFFFF and bg.toArgb())
     val fgHex = "#%06X".format(0xFFFFFF and fg.toArgb())
-    val enterKeyframes =
-        when (direction) {
-            0 -> "ankiRise"
-            -1 -> "ankiSlideBack"
-            else -> "ankiSlideForward"
+    val contentAnimation =
+        when (kind) {
+            CardTransition.QUESTION_RISE -> "#content { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
+            CardTransition.QUESTION_FORWARD -> "#content { animation: ankiSlideForward 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
+            CardTransition.QUESTION_BACK -> "#content { animation: ankiSlideBack 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
+            // Answer reveal: the question part stays still, only the hr and
+            // everything after it animate in. Works with default templates where
+            // FrontSide, hr#answer and the answer are siblings.
+            CardTransition.ANSWER_REVEAL ->
+                "#answer { animation: ankiFade 300ms cubic-bezier(0.2, 0, 0, 1) both; }" +
+                    "#answer ~ * { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
+        }
+    val fallbackScript =
+        if (kind == CardTransition.ANSWER_REVEAL) {
+            // Exotic templates may not have hr#answer: animate the whole content instead
+            "<script>(function(){var a=document.getElementById('answer');" +
+                "var c=document.getElementById('content');" +
+                "if(c&&!a){c.style.animation='ankiRise 320ms cubic-bezier(0.2,0,0,1) both';}})();</script>"
+        } else {
+            ""
         }
     val override =
         "<style id=\"expressive-theme\">" +
             "html, body { background-color: $bgHex !important; }" +
             "body, #content, #qa, .card { color: $fgHex !important; background-color: transparent !important; }" +
             "img { max-width: 100%; height: auto; }" +
-            "#expressive-answer { overflow: hidden; }" +
-            ".expressive-answer-inner { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }" +
             "@keyframes ankiRise { from { opacity: 0; transform: translateY(24px); } " +
             "to { opacity: 1; transform: translateY(0); } }" +
+            "@keyframes ankiFade { from { opacity: 0; } to { opacity: 1; } }" +
             "@keyframes ankiSlideForward { from { opacity: 0; transform: translateX(56px); } " +
             "to { opacity: 1; transform: translateX(0); } }" +
             "@keyframes ankiSlideBack { from { opacity: 0; transform: translateX(-56px); } " +
             "to { opacity: 1; transform: translateX(0); } }" +
-            "#content { animation: $enterKeyframes 320ms cubic-bezier(0.2, 0, 0, 1) both; }" +
-            "</style>"
-    val bodyInject =
-        "<div id=\"expressive-answer\"></div>" +
-            "<script>window.expressiveShowAnswer = function(html) {" +
-            "var slot = document.getElementById('expressive-answer');" +
-            "if (!slot) { return; }" +
-            "var tmp = document.createElement('div');" +
-            "tmp.innerHTML = html;" +
-            "var wrap = document.createElement('div');" +
-            "wrap.className = 'expressive-answer-inner';" +
-            "var hr = tmp.querySelector('hr#answer');" +
-            "if (hr) { wrap.appendChild(hr.cloneNode(true));" +
-            "var n = hr.nextSibling; while (n) { var nx = n.nextSibling; wrap.appendChild(n); n = nx; } }" +
-            "else { while (tmp.firstChild) { wrap.appendChild(tmp.firstChild); } }" +
-            "slot.appendChild(wrap);" +
-            "};</script>"
+            contentAnimation +
+            "</style>" +
+            fallbackScript
     var result =
         if (content.contains("</head>", ignoreCase = true)) {
             content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
         } else {
             content + override
-        }
-    result =
-        if (result.contains("</body>", ignoreCase = true)) {
-            result.replaceFirst(Regex("</body>", RegexOption.IGNORE_CASE), "$bodyInject</body>")
-        } else {
-            result + bodyInject
         }
     return result
 }
