@@ -161,7 +161,9 @@ object ExpressiveCollection {
     /** Toggles the "marked" tag on the current card; returns the new marked state. */
     suspend fun toggleMark(state: CurrentQueueState): Boolean =
         withCol {
-            val note = state.topCard.note(this)
+            // Re-read the note: the cached queue card's tags go stale after the
+            // first toggle, which would make every second tap a no-op.
+            val note = getCard(state.topCard.id).note(this)
             if (note.hasTag(this, "marked")) note.removeTag("marked") else note.addTag("marked")
             updateNote(note)
             note.hasTag(this, "marked")
@@ -170,8 +172,10 @@ object ExpressiveCollection {
     /** Cycles the card flag 0 -> 1 .. 7 -> 0; returns the new flag. */
     suspend fun cycleFlag(state: CurrentQueueState): Int =
         withCol {
-            val next = (state.topCard.userFlag() + 1) % 8
-            setUserFlagForCards(listOf(state.topCard.id), next)
+            // Fresh read for the same reason as in toggleMark.
+            val card = getCard(state.topCard.id)
+            val next = (card.userFlag() + 1) % 8
+            setUserFlagForCards(listOf(card.id), next)
             next
         }
 

@@ -3,6 +3,7 @@
 package com.ichi2.anki.ui.expressive.screens
 
 import android.webkit.WebView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -24,12 +27,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,227 +41,60 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import anki.scheduler.CardAnswer.Rating
 import com.ichi2.anki.R
 import com.ichi2.anki.libanki.DeckId
-import com.ichi2.anki.ui.expressive.ExpressiveCollection
+import com.ichi2.anki.ui.expressive.CardTransition
 import com.ichi2.anki.ui.expressive.ExpressiveSettings
-import com.ichi2.anki.ui.expressive.StudyCardUi
+import com.ichi2.anki.ui.expressive.StudyUiState
+import com.ichi2.anki.ui.expressive.StudyViewModel
 import com.ichi2.anki.ui.expressive.components.AnswerButtons
 import com.ichi2.anki.ui.expressive.components.CardGestureArea
 import com.ichi2.anki.ui.expressive.components.GestureAction
 import com.ichi2.anki.ui.expressive.components.ShowAnswerButton
 import com.ichi2.anki.ui.expressive.components.StudyTopBar
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.ichi2.anki.ui.expressive.ratingFor
+import com.ichi2.anki.ui.expressive.remainingCards
 
-/** How the next rendered card page should enter. */
-enum class CardTransition {
-    QUESTION_RISE,
-    QUESTION_FORWARD,
-    QUESTION_BACK,
-    ANSWER_REVEAL,
-}
-
-/** One card in the study session. */
-data class AnsweredCard(
-    val card: StudyCardUi,
-    val backHtml: String,
-    val intervals: List<String>,
-)
-
-sealed interface StudyUiState {
-    data object Loading : StudyUiState
-
-    data class Question(
-        val card: StudyCardUi,
-        val remaining: Int,
-    ) : StudyUiState
-
-    data class Answered(
-        val card: AnsweredCard,
-        val remaining: Int,
-    ) : StudyUiState
-
-    data object Finished : StudyUiState
-
-    data class Error(
-        val message: String,
-    ) : StudyUiState
-}
-
-private fun StudyUiState.remainingCards(): Int =
-    when (this) {
-        is StudyUiState.Question -> remaining
-        is StudyUiState.Answered -> remaining
-        else -> 0
-    }
-
-private fun ratingFor(index: Int): anki.scheduler.CardAnswer.Rating =
-    when (index) {
-        0 -> anki.scheduler.CardAnswer.Rating.AGAIN
-        1 -> anki.scheduler.CardAnswer.Rating.HARD
-        2 -> anki.scheduler.CardAnswer.Rating.GOOD
-        else -> anki.scheduler.CardAnswer.Rating.EASY
-    }
-
-private fun logFailure(e: Exception) {
-    android.util.Log.w("ExpressiveStudy", "study operation failed", e)
-}
-
-/** Study: the real review loop against the collection. */
+/** Study: the real review loop against the collection, state held by [StudyViewModel]. */
 @Composable
 fun StudyScreen(
     deckId: DeckId,
     deckName: String,
-    onClose: () -> Unit,
     gestures: ExpressiveSettings,
+    onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf<StudyUiState>(StudyUiState.Loading) }
-    var gestureMenu by remember { mutableStateOf(false) }
-    // Card slide direction for the transition: 0 = reveal, 1 = forward, -1 = back
-    var slideDirection by remember { mutableIntStateOf(0) }
-    var sessionTotal by remember { mutableIntStateOf(-1) }
-    var seconds by remember { mutableIntStateOf(0) }
+    val viewModel: StudyViewModel = viewModel()
 
-    // Single in-flight guard: rapid taps must never double-grade a card or
-    // restart the pipeline. The current card stays visible until the next one
-    // is ready, so the loop never shows a blocking state between answers.
-    var working by remember { mutableStateOf(false) }
-    var marked by remember { mutableStateOf(false) }
-    var flag by remember { mutableIntStateOf(0) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val marked by viewModel.marked.collectAsStateWithLifecycle()
+    val flag by viewModel.flag.collectAsStateWithLifecycle()
+    val working by viewModel.working.collectAsStateWithLifecycle()
+    val seconds by viewModel.seconds.collectAsStateWithLifecycle()
+    val sessionTotal by viewModel.sessionTotal.collectAsStateWithLifecycle()
+    val transition by viewModel.transition.collectAsStateWithLifecycle()
+
+    var gestureMenu by remember { mutableStateOf(false) }
     var reloadOnResume by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
-    fun loadNext() {
-        scope.launch {
-            state =
-                try {
-                    val card = ExpressiveCollection.currentCard(context)
-                    if (card == null) {
-                        StudyUiState.Finished
-                    } else {
-                        val counts = card.queueState.counts
-                        val remaining = counts.new + counts.lrn + counts.rev
-                        if (sessionTotal < 0) sessionTotal = remaining
-                        seconds = 0
-                        marked = card.marked
-                        flag = card.flag
-                        StudyUiState.Question(card, remaining)
-                    }
-                } catch (e: Exception) {
-                    StudyUiState.Error(e.message ?: "Failed to load card")
-                }
-            working = false
+    // One WebView for the whole study session: hoisted above the Question/Answered
+    // branches so revealing the answer reuses it instead of destroying/recreating it.
+    val cardWebView =
+        remember {
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.allowFileAccess = true
+                settings.loadWithOverviewMode = true
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
+            }
         }
-    }
-
-    fun runStudyAction(block: suspend () -> Unit) {
-        if (working) return
-        working = true
-        scope.launch {
-            try {
-                block()
-            } catch (e: Exception) {
-                logFailure(e)
-            }
-            loadNext()
-        }
-    }
-
-    fun revealCurrent() {
-        val s = state
-        if (working || s !is StudyUiState.Question) return
-        slideDirection = 0
-        working = true
-        scope.launch {
-            state =
-                try {
-                    val (back, intervals) = ExpressiveCollection.revealCard(context, s.card.queueState)
-                    // Navigation-based reveal: the themed back page animates its answer
-                    // part in with CSS on the first painted frame — deterministic for
-                    // every template, no dependency on live-page state.
-                    StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
-                } catch (e: Exception) {
-                    StudyUiState.Error(e.message ?: "Failed to reveal card")
-                }
-            working = false
-        }
-    }
-
-    fun grade(rating: anki.scheduler.CardAnswer.Rating) {
-        val s = state
-        if (working || s !is StudyUiState.Answered) return
-        slideDirection = if (rating == anki.scheduler.CardAnswer.Rating.AGAIN) -1 else 1
-        working = true
-        scope.launch {
-            try {
-                ExpressiveCollection.answer(s.card.card.queueState, rating)
-            } catch (e: Exception) {
-                logFailure(e)
-            }
-            loadNext()
-        }
-    }
-
-    fun performGesture(actionKey: String) {
-        fun currentQueue(): com.ichi2.anki.libanki.sched.CurrentQueueState? = currentQueueStateOf(state)
-        when (GestureAction.fromKey(actionKey)) {
-            GestureAction.SHOW_ANSWER -> revealCurrent()
-            GestureAction.GOOD -> grade(anki.scheduler.CardAnswer.Rating.GOOD)
-            GestureAction.HARD -> grade(anki.scheduler.CardAnswer.Rating.HARD)
-            GestureAction.AGAIN -> grade(anki.scheduler.CardAnswer.Rating.AGAIN)
-            GestureAction.EASY -> grade(anki.scheduler.CardAnswer.Rating.EASY)
-            GestureAction.UNDO -> runStudyAction { ExpressiveCollection.undoLast() }
-            GestureAction.MARK -> {
-                val qs = currentQueue() ?: return
-                if (working) return
-                working = true
-                scope.launch {
-                    try {
-                        marked = ExpressiveCollection.toggleMark(qs)
-                    } catch (e: Exception) {
-                        logFailure(e)
-                    }
-                    working = false
-                }
-            }
-            GestureAction.FLAG -> {
-                val qs = currentQueue() ?: return
-                if (working) return
-                working = true
-                scope.launch {
-                    try {
-                        flag = ExpressiveCollection.cycleFlag(qs)
-                    } catch (e: Exception) {
-                        logFailure(e)
-                    }
-                    working = false
-                }
-            }
-            GestureAction.EDIT -> {
-                val qs = currentQueue() ?: return
-                reloadOnResume = true
-                context.startActivity(
-                    com.ichi2.anki.noteeditor.NoteEditorLauncher
-                        .EditSelection(
-                            cardIds = listOf(qs.topCard.id),
-                            animation = com.ichi2.anki.common.ui.TransitionDirection.FADE,
-                        ).toIntent(context),
-                )
-            }
-            GestureAction.BURY -> {
-                val qs = currentQueue() ?: return
-                runStudyAction { ExpressiveCollection.buryCurrent(qs) }
-            }
-            GestureAction.SUSPEND -> {
-                val qs = currentQueue() ?: return
-                runStudyAction { ExpressiveCollection.suspendCurrent(qs) }
-            }
-            GestureAction.MENU -> gestureMenu = true
-            GestureAction.NONE -> {}
-        }
+    DisposableEffect(Unit) {
+        onDispose { cardWebView.destroy() }
     }
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
@@ -269,30 +102,44 @@ fun StudyScreen(
             androidx.lifecycle.LifecycleEventObserver { _, event ->
                 if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && reloadOnResume) {
                     reloadOnResume = false
-                    loadNext()
+                    viewModel.loadNext()
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(deckId) {
-        state = StudyUiState.Loading
-        sessionTotal = -1
-        try {
-            ExpressiveCollection.selectDeck(deckId)
-        } catch (e: Exception) {
-            logFailure(e)
-        }
-        loadNext()
+    androidx.compose.runtime.LaunchedEffect(deckId) {
+        viewModel.selectDeckAndLoad(deckId)
     }
 
-    LaunchedEffect(state) {
-        if (state is StudyUiState.Question) {
-            while (true) {
-                delay(1000)
-                seconds++
+    fun performGesture(actionKey: String) {
+        val qs = currentQueueStateOf(state)
+        when (GestureAction.fromKey(actionKey)) {
+            GestureAction.SHOW_ANSWER -> viewModel.revealCurrent()
+            GestureAction.GOOD -> viewModel.grade(Rating.GOOD)
+            GestureAction.HARD -> viewModel.grade(Rating.HARD)
+            GestureAction.AGAIN -> viewModel.grade(Rating.AGAIN)
+            GestureAction.EASY -> viewModel.grade(Rating.EASY)
+            GestureAction.UNDO -> viewModel.undo()
+            GestureAction.MARK -> viewModel.toggleMark()
+            GestureAction.FLAG -> viewModel.cycleFlag()
+            GestureAction.EDIT -> {
+                if (qs != null) {
+                    reloadOnResume = true
+                    context.startActivity(
+                        com.ichi2.anki.noteeditor.NoteEditorLauncher
+                            .EditSelection(
+                                cardIds = listOf(qs.topCard.id),
+                                animation = com.ichi2.anki.common.ui.TransitionDirection.FADE,
+                            ).toIntent(context),
+                    )
+                }
             }
+            GestureAction.BURY -> viewModel.buryCurrent()
+            GestureAction.SUSPEND -> viewModel.suspendCurrent()
+            GestureAction.MENU -> gestureMenu = true
+            GestureAction.NONE -> {}
         }
     }
 
@@ -302,7 +149,6 @@ fun StudyScreen(
             // from the very first question and glides forward on every answer.
             progress =
                 if (sessionTotal > 0) {
-                    // Cap below 1.0 so the wavy indicator never flattens out mid-session
                     ((sessionTotal - state.remainingCards() + 1f) / (sessionTotal + 1f)).coerceIn(0.03f, 0.97f)
                 } else {
                     0f
@@ -335,86 +181,55 @@ fun StudyScreen(
                 label = "Undo",
                 enabled = !working,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = { runStudyAction { ExpressiveCollection.undoLast() } },
+                onClick = { viewModel.undo() },
             )
             StudyActionButton(
                 iconRes = com.ichi2.anki.R.drawable.ic_star_black_24,
                 label = "Mark",
                 enabled = !working && qs != null,
                 tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = {
-                    if (qs != null && !working) {
-                        working = true
-                        scope.launch {
-                            try {
-                                marked = ExpressiveCollection.toggleMark(qs)
-                            } catch (e: Exception) {
-                                logFailure(e)
-                            }
-                            working = false
-                        }
-                    }
-                },
+                onClick = { viewModel.toggleMark() },
             )
-            StudyActionButton(
-                iconRes = if (flag == 0) R.drawable.ic_flag_neutral_filled else flagDrawable(flag),
-                label = "Flag",
-                enabled = !working && qs != null,
-                tint =
-                    if (flag == 0) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        androidx.compose.ui.graphics.Color.Unspecified
-                    },
-                onClick = {
-                    if (qs != null && !working) {
-                        working = true
-                        scope.launch {
-                            try {
-                                flag = ExpressiveCollection.cycleFlag(qs)
-                            } catch (e: Exception) {
-                                logFailure(e)
-                            }
-                            working = false
-                        }
-                    }
-                },
-            )
+            Box {
+                StudyActionButton(
+                    iconRes = com.ichi2.anki.R.drawable.ic_flag_neutral_filled,
+                    label = "Flag",
+                    enabled = !working && qs != null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = { viewModel.cycleFlag() },
+                )
+                // Small colored dot so the flag state stays visible without
+                // breaking the toolbar's uniform gray icon language.
+                if (flag > 0) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 8.dp, end = 8.dp)
+                            .size(8.dp)
+                            .background(flagTint(flag), CircleShape),
+                    )
+                }
+            }
             StudyActionButton(
                 iconRes = com.ichi2.anki.R.drawable.ic_edit_note,
                 label = "Edit",
                 enabled = !working && qs != null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = {
-                    if (qs != null) {
-                        reloadOnResume = true
-                        context.startActivity(
-                            com.ichi2.anki.noteeditor.NoteEditorLauncher
-                                .EditSelection(
-                                    cardIds = listOf(qs.topCard.id),
-                                    animation = com.ichi2.anki.common.ui.TransitionDirection.FADE,
-                                ).toIntent(context),
-                        )
-                    }
-                },
+                onClick = { performGesture(GestureAction.EDIT.key) },
             )
             StudyActionButton(
                 iconRes = com.ichi2.anki.R.drawable.ic_hide,
                 label = "Bury",
                 enabled = !working && qs != null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = {
-                    if (qs != null) runStudyAction { ExpressiveCollection.buryCurrent(qs) }
-                },
+                onClick = { viewModel.buryCurrent() },
             )
             StudyActionButton(
                 iconRes = com.ichi2.anki.R.drawable.round_pause_24,
                 label = "Suspend",
                 enabled = !working && qs != null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = {
-                    if (qs != null) runStudyAction { ExpressiveCollection.suspendCurrent(qs) }
-                },
+                onClick = { viewModel.suspendCurrent() },
             )
         }
         CardGestureArea(
@@ -429,29 +244,21 @@ fun StudyScreen(
             onSwipeLeft = { performGesture(gestures.gestureSwipeLeft) },
             onSwipeRight = { performGesture(gestures.gestureSwipeRight) },
         ) {
-            val questionKind =
-                when (slideDirection) {
-                    -1 -> CardTransition.QUESTION_BACK
-                    1 -> CardTransition.QUESTION_FORWARD
-                    else -> CardTransition.QUESTION_RISE
-                }
             when (val s = state) {
                 is StudyUiState.Loading -> LoadingIndicator()
                 is StudyUiState.Error -> ErrorPane(s.message)
                 is StudyUiState.Finished -> CongratsPane(onClose)
                 is StudyUiState.Question ->
                     CardPane(
-                        frontHtml = s.card.frontHtml,
-                        backHtml = null,
+                        webView = cardWebView,
+                        html = themedCardHtml(s.card.frontHtml, transition.toQuestionKind()),
                         baseUrl = s.card.baseUrl,
-                        kind = questionKind,
                     )
                 is StudyUiState.Answered ->
                     CardPane(
-                        frontHtml = s.card.card.frontHtml,
-                        backHtml = s.card.backHtml,
+                        webView = cardWebView,
+                        html = themedCardHtml(s.card.backHtml, CardTransition.ANSWER_REVEAL),
                         baseUrl = s.card.card.baseUrl,
-                        kind = CardTransition.ANSWER_REVEAL,
                     )
             }
             if (gestureMenu) {
@@ -470,13 +277,13 @@ fun StudyScreen(
                     is StudyUiState.Question ->
                         ShowAnswerButton(
                             enabled = !working,
-                            onClick = { revealCurrent() },
+                            onClick = { viewModel.revealCurrent() },
                         )
                     is StudyUiState.Answered ->
                         AnswerButtons(
                             intervals = s.card.intervals,
                             enabled = !working,
-                            onAnswer = { ratingIndex -> grade(ratingFor(ratingIndex)) },
+                            onAnswer = { ratingIndex -> viewModel.grade(ratingFor(ratingIndex)) },
                         )
                     else -> {}
                 }
@@ -486,6 +293,13 @@ fun StudyScreen(
     }
 }
 
+private fun CardTransition.toQuestionKind(): CardTransition =
+    when (this) {
+        CardTransition.QUESTION_BACK -> CardTransition.QUESTION_BACK
+        CardTransition.QUESTION_FORWARD -> CardTransition.QUESTION_FORWARD
+        else -> CardTransition.QUESTION_RISE
+    }
+
 /** Current queue state regardless of question/answered phase, null while loading. */
 private fun currentQueueStateOf(state: StudyUiState): com.ichi2.anki.libanki.sched.CurrentQueueState? =
     when (state) {
@@ -494,16 +308,16 @@ private fun currentQueueStateOf(state: StudyUiState): com.ichi2.anki.libanki.sch
         else -> null
     }
 
-private fun flagDrawable(flag: Int): Int =
+private fun flagTint(flag: Int): Color =
     when (flag) {
-        1 -> com.ichi2.anki.R.drawable.ic_flag_red
-        2 -> com.ichi2.anki.R.drawable.ic_flag_orange
-        3 -> com.ichi2.anki.R.drawable.ic_flag_green
-        4 -> com.ichi2.anki.R.drawable.ic_flag_blue
-        5 -> com.ichi2.anki.R.drawable.ic_flag_pink
-        6 -> com.ichi2.anki.R.drawable.ic_flag_turquoise
-        7 -> com.ichi2.anki.R.drawable.ic_flag_purple
-        else -> com.ichi2.anki.R.drawable.ic_flag_lightgrey
+        1 -> Color(0xFFEF5350)
+        2 -> Color(0xFFFFB74D)
+        3 -> Color(0xFF81C784)
+        4 -> Color(0xFF64B5F6)
+        5 -> Color(0xFFF06292)
+        6 -> Color(0xFF4DD0E1)
+        7 -> Color(0xFF9575CD)
+        else -> Color(0xFF9AA0A6)
     }
 
 @Composable
@@ -525,30 +339,10 @@ private fun StudyActionButton(
 
 @Composable
 private fun CardPane(
-    frontHtml: String,
-    backHtml: String?,
+    webView: WebView,
+    html: String,
     baseUrl: String,
-    kind: CardTransition,
 ) {
-    val context = LocalContext.current
-    val webView =
-        remember {
-            WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.allowFileAccess = true
-                settings.loadWithOverviewMode = true
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                isVerticalScrollBarEnabled = false
-            }
-        }
-    DisposableEffect(Unit) {
-        onDispose { webView.destroy() }
-    }
-    // The back template already contains the front side ({{FrontSide}}), so render
-    // exactly one side at a time. The themed page carries its own CSS enter
-    // animation, which runs from the first painted frame — deterministic for
-    // every template, no dependency on live WebView state.
-    val html = themedCardHtml(backHtml ?: frontHtml, kind)
     AndroidView(
         factory = { webView },
         update = { view ->
@@ -620,13 +414,11 @@ private fun themedCardHtml(
             contentAnimation +
             "</style>" +
             fallbackScript
-    var result =
-        if (content.contains("</head>", ignoreCase = true)) {
-            content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
-        } else {
-            content + override
-        }
-    return result
+    return if (content.contains("</head>", ignoreCase = true)) {
+        content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
+    } else {
+        content + override
+    }
 }
 
 @Composable
