@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,12 +57,19 @@ fun MoreScreen(
     var showHelp by remember { mutableStateOf(false) }
     var showSupport by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val workInfos by
+        remember {
+            androidx.work.WorkManager
+                .getInstance(context)
+                .getWorkInfosForUniqueWorkFlow(com.ichi2.anki.worker.UniqueWorkNames.SYNC)
+        }.collectAsState(initial = emptyList())
+    val syncing = workInfos.any { it.state == androidx.work.WorkInfo.State.RUNNING }
     val groups =
         listOf(
             "Settings" to
                 listOf(
                     MoreItem("Settings", "All application preferences", R.drawable.ic_settings_black),
-                    MoreItem("Sync", "AnkiWeb account & data", R.drawable.ic_sync),
+                    MoreItem("Sync", if (syncing) "Syncing…" else "AnkiWeb account & data", R.drawable.ic_sync),
                 ),
             "Help" to
                 listOf(

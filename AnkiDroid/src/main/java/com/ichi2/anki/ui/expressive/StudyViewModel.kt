@@ -106,7 +106,7 @@ class StudyViewModel(
         }
     }
 
-    fun revealCurrent() {
+    fun revealCurrent(typedInput: String? = null) {
         val s = _state.value
         if (_working.value || s !is StudyUiState.Question) return
         setWorking()
@@ -114,7 +114,8 @@ class StudyViewModel(
         viewModelScope.launch {
             _state.value =
                 try {
-                    val (back, intervals) = ExpressiveCollection.revealCard(getApplication(), s.card.queueState)
+                    val (back, intervals) =
+                        ExpressiveCollection.revealCard(getApplication(), s.card.queueState, typedInput)
                     StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
                 } catch (e: Exception) {
                     StudyUiState.Error(e.message ?: "Failed to reveal card")

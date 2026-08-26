@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -32,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import anki.scheduler.CustomStudyRequest.Cram.CramKind
+import anki.scheduler.copy
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
 import com.ichi2.anki.ui.expressive.UiDeck
@@ -58,6 +61,7 @@ fun HomeScreen(
     var menuDeck by remember { mutableStateOf<UiDeck?>(null) }
     var renameDeck by remember { mutableStateOf<UiDeck?>(null) }
     var deleteDeck by remember { mutableStateOf<UiDeck?>(null) }
+    var customStudyDeck by remember { mutableStateOf<UiDeck?>(null) }
     var showAddDeck by remember { mutableStateOf(false) }
     var showFabMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -65,6 +69,7 @@ fun HomeScreen(
     fun reload() {
         scope.launch {
             try {
+                ExpressiveCollection.ensureTypeTestCard()
                 decks = ExpressiveCollection.loadDecks()
                 error = null
             } catch (e: Exception) {
@@ -85,12 +90,13 @@ fun HomeScreen(
     val flat =
         remember(loaded) {
             buildList {
-                loaded.forEach { deck ->
+                fun walk(deck: UiDeck) {
                     add(deck)
                     if (!deck.collapsed) {
-                        deck.children.forEach { add(it) }
+                        deck.children.forEach { walk(it) }
                     }
                 }
+                loaded.forEach { walk(it) }
             }
         }
     val totalNew = loaded.sumOf { it.newCount }
@@ -177,6 +183,10 @@ fun HomeScreen(
                             onDeckOptions(deck.did, deck.filtered)
                             menuDeck = null
                         },
+                        onCustomStudy = {
+                            customStudyDeck = deck
+                            menuDeck = null
+                        },
                     )
                 }
             }
@@ -246,6 +256,133 @@ fun HomeScreen(
             },
         )
     }
+
+    customStudyDeck?.let { deck ->
+        CustomStudyDialog(
+            deck = deck,
+            onDismiss = { customStudyDeck = null },
+            onDone = { openSessionId ->
+                customStudyDeck = null
+                scope.launch {
+                    val current = ExpressiveCollection.loadDecks()
+                    decks = current
+                    if (openSessionId != null) {
+                        fun findSession(list: List<UiDeck>): UiDeck? =
+                            list.firstOrNull { it.fullDeckName.endsWith("Custom Study Session") }
+                                ?: list.firstNotNullOfOrNull { findSession(it.children) }
+                        findSession(current)?.let { session -> onDeckClick(session.did, session.name) }
+                    }
+                }
+            },
+        )
+    }
+}
+
+private val customStudyModes =
+    listOf(
+        "new" to "Increase new card limit",
+        "rev" to "Increase review limit",
+        "forgot" to "Review forgotten cards",
+        "ahead" to "Review ahead",
+        "tags" to "Tag-based cram",
+    )
+
+@Composable
+private fun CustomStudyDialog(
+    deck: UiDeck,
+    onDismiss: () -> Unit,
+    onDone: (openSessionId: DeckId?) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var mode by remember { mutableStateOf("new") }
+    var amount by remember { mutableStateOf("10") }
+    var tags by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom study") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    deck.fullDeckName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                customStudyModes.forEach { (key, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = mode == key,
+                            onClick = { mode = key },
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it.filter(Char::isDigit) },
+                    label = { Text("Amount") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (mode == "tags") {
+                    OutlinedTextField(
+                        value = tags,
+                        onValueChange = { tags = it },
+                        label = { Text("Tags (comma-separated)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = (amount.toIntOrNull() ?: -1) > 0,
+                onClick = {
+                    val n = amount.toIntOrNull() ?: return@TextButton
+                    scope.launch {
+                        val request =
+                            anki.scheduler.customStudyRequest {
+                                deckId = deck.did
+                                when (mode) {
+                                    "new" -> newLimitDelta = n
+                                    "rev" -> reviewLimitDelta = n
+                                    "forgot" -> forgotDays = n
+                                    "ahead" -> reviewAheadDays = n
+                                    else ->
+                                        cram =
+                                            cram.copy {
+                                                kind = CramKind.CRAM_KIND_ALL
+                                                cardLimit = n
+                                                tags
+                                                    .split(',')
+                                                    .map { it.trim() }
+                                                    .filter { it.isNotEmpty() }
+                                                    .forEach { tagsToInclude.add(it) }
+                                            }
+                                }
+                            }
+                        ExpressiveCollection.customStudy(request)
+                        // Session modes create a filtered deck worth opening right away.
+                        onDone(if (mode == "forgot" || mode == "ahead" || mode == "tags") deck.did else null)
+                    }
+                },
+            ) { Text("Start") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable
@@ -255,9 +392,11 @@ private fun DeckContextMenu(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onOptions: () -> Unit,
+    onCustomStudy: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text("Study options") }, onClick = onOptions)
+        DropdownMenuItem(text = { Text("Custom study") }, onClick = onCustomStudy)
         DropdownMenuItem(text = { Text("Rename") }, onClick = onRename)
         DropdownMenuItem(text = { Text("Delete") }, onClick = onDelete)
     }

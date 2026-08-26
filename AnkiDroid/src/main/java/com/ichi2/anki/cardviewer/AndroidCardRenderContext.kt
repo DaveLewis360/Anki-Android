@@ -52,6 +52,32 @@ class AndroidCardRenderContext(
         return render(content, card.ord)
     }
 
+    /** Prepares type-answer state (correct answer etc.) before rendering a side. */
+    fun prepareTypeAnswer(
+        col: Collection,
+        card: Card,
+        resources: android.content.res.Resources,
+    ) {
+        typeAnswer.updateInfo(col, card, resources)
+    }
+
+    /** Sets the text typed by the learner so the answer side can compare it. */
+    fun setTypeAnswerInput(input: String) {
+        typeAnswer.input = input
+    }
+
+    /** Whether this card expects a typed answer (and the correct answer text). */
+    fun typeAnswerInfo(): Pair<Boolean, String?> =
+        if (typeAnswer.validForEditText() || typeAnswer.useInputTag) {
+            true to typeAnswer.correct
+        } else {
+            false to null
+        }
+
+    /** Whether the template renders its own input tag inside the WebView. */
+    val typeAnswerUseInputTag: Boolean
+        get() = typeAnswer.useInputTag
+
     private fun render(
         content: String,
         ord: CardOrdinal,

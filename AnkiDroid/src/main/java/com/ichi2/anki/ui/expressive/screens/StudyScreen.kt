@@ -23,6 +23,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -78,6 +79,7 @@ fun StudyScreen(
     val transition by viewModel.transition.collectAsStateWithLifecycle()
 
     var gestureMenu by remember { mutableStateOf(false) }
+    var typedAnswer by remember { mutableStateOf("") }
     var reloadOnResume by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
@@ -113,10 +115,21 @@ fun StudyScreen(
         viewModel.selectDeckAndLoad(deckId)
     }
 
+    // Reset the typed answer whenever a new card is shown.
+    androidx.compose.runtime.LaunchedEffect(
+        (state as? StudyUiState.Question)
+            ?.card
+            ?.queueState
+            ?.topCard
+            ?.id,
+    ) {
+        typedAnswer = ""
+    }
+
     fun performGesture(actionKey: String) {
         val qs = currentQueueStateOf(state)
         when (GestureAction.fromKey(actionKey)) {
-            GestureAction.SHOW_ANSWER -> viewModel.revealCurrent()
+            GestureAction.SHOW_ANSWER -> viewModel.revealCurrent(typedAnswer)
             GestureAction.GOOD -> viewModel.grade(Rating.GOOD)
             GestureAction.HARD -> viewModel.grade(Rating.HARD)
             GestureAction.AGAIN -> viewModel.grade(Rating.AGAIN)
@@ -249,11 +262,32 @@ fun StudyScreen(
                 is StudyUiState.Error -> ErrorPane(s.message)
                 is StudyUiState.Finished -> CongratsPane(onClose)
                 is StudyUiState.Question ->
-                    CardPane(
-                        webView = cardWebView,
-                        html = themedCardHtml(s.card.frontHtml, transition.toQuestionKind()),
-                        baseUrl = s.card.baseUrl,
-                    )
+                    Column {
+                        CardPane(
+                            webView = cardWebView,
+                            html =
+                                themedCardHtml(
+                                    content = s.card.frontHtml,
+                                    kind = transition.toQuestionKind(),
+                                    hideTypeInput = s.card.typeUseInputTag,
+                                ),
+                            baseUrl = s.card.baseUrl,
+                        )
+                        // Type-answer cards: learner types before revealing.
+                        if (s.card.typeCorrect != null) {
+                            OutlinedTextField(
+                                value = typedAnswer,
+                                onValueChange = { typedAnswer = it },
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                                label = { Text("Type answer") },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.large,
+                            )
+                        }
+                    }
                 is StudyUiState.Answered ->
                     CardPane(
                         webView = cardWebView,
@@ -277,7 +311,7 @@ fun StudyScreen(
                     is StudyUiState.Question ->
                         ShowAnswerButton(
                             enabled = !working,
-                            onClick = { viewModel.revealCurrent() },
+                            onClick = { viewModel.revealCurrent(typedAnswer) },
                         )
                     is StudyUiState.Answered ->
                         AnswerButtons(
@@ -373,11 +407,18 @@ private fun CardPane(
 private fun themedCardHtml(
     content: String,
     kind: CardTransition,
+    hideTypeInput: Boolean = false,
 ): String {
     val bg = MaterialTheme.colorScheme.background
     val fg = MaterialTheme.colorScheme.onBackground
     val bgHex = "#%06X".format(0xFFFFFF and bg.toArgb())
     val fgHex = "#%06X".format(0xFFFFFF and fg.toArgb())
+    val typeInputHide =
+        if (hideTypeInput) {
+            "#typeans { display: none !important; }"
+        } else {
+            ""
+        }
     val contentAnimation =
         when (kind) {
             CardTransition.QUESTION_RISE -> "#content { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
@@ -404,6 +445,7 @@ private fun themedCardHtml(
             "html, body { background-color: $bgHex !important; }" +
             "body, #content, #qa, .card { color: $fgHex !important; background-color: transparent !important; }" +
             "img { max-width: 100%; height: auto; }" +
+            typeInputHide +
             "@keyframes ankiRise { from { opacity: 0; transform: translateY(24px); } " +
             "to { opacity: 1; transform: translateY(0); } }" +
             "@keyframes ankiFade { from { opacity: 0; } to { opacity: 1; } }" +

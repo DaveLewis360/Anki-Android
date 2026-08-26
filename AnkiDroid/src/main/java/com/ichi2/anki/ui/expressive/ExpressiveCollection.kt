@@ -39,6 +39,9 @@ data class StudyCardUi(
     val baseUrl: String,
     val marked: Boolean,
     val flag: Int,
+    /** Non-null when the card expects a typed answer. */
+    val typeCorrect: String?,
+    val typeUseInputTag: Boolean,
 )
 
 enum class UiCardState { NEW, LEARNING, REVIEW, SUSPENDED }
@@ -83,6 +86,20 @@ object ExpressiveCollection {
             sched.deckDueTree().children.map { it.toUiDeck(0) }
         }
 
+    /** Creates one type-answer demo card once, so the typing flow can be tried. */
+    suspend fun ensureTypeTestCard() {
+        withCol {
+            if (decks.byName("Gépelős teszt") != null) return@withCol
+            notetypes.byName("Basic (type in the answer)")?.let { typeNotetype ->
+                val deckId = decks.id("Gépelős teszt")
+                val note = newNote(typeNotetype)
+                note.setField(0, "What does 'scarce' mean?")
+                note.setField(1, "ritka, szűkös")
+                addNote(note, deckId)
+            }
+        }
+    }
+
     private fun DeckNode.toUiDeck(depth: Int): UiDeck =
         UiDeck(
             did = did,
@@ -121,6 +138,14 @@ object ExpressiveCollection {
             decks.id(name)
         }
 
+    /**
+     * Runs a custom-study request against [deckId] (extends daily limits or builds a
+     * temporary "Custom Study Session" filtered deck, depending on the request).
+     */
+    suspend fun customStudy(request: anki.scheduler.CustomStudyRequest) =
+        com.ichi2.anki.observability
+            .undoableOp { sched.customStudy(request) }
+
     suspend fun selectDeck(did: DeckId) =
         withCol {
             decks.select(did)
@@ -131,22 +156,32 @@ object ExpressiveCollection {
         withCol {
             val state = sched.currentQueueState() ?: return@withCol null
             val renderContext = renderContext(context)
+            renderContext.prepareTypeAnswer(this, state.topCard, context.resources)
+            val (typeEnabled, typeCorrect) = renderContext.typeAnswerInfo()
             StudyCardUi(
                 queueState = state,
                 frontHtml = renderContext.renderCard(this, state.topCard, SingleCardSide.FRONT).html,
                 baseUrl = "file://${media.dir}/",
                 marked = state.topCard.note(this).hasTag(this, "marked"),
                 flag = state.topCard.userFlag(),
+                typeCorrect = typeCorrect,
+                typeUseInputTag = typeEnabled && renderContext.typeAnswerUseInputTag,
             )
         }
 
-    /** Renders the answer side and the four next-interval labels. */
+    /** Renders the answer side and the four next-interval labels.
+     *  [typedInput] is the learner's typed answer for type-answer cards. */
     suspend fun revealCard(
         context: Context,
         state: CurrentQueueState,
+        typedInput: String? = null,
     ): Pair<String, List<String>> =
         withCol {
             val renderContext = renderContext(context)
+            renderContext.prepareTypeAnswer(this, state.topCard, context.resources)
+            if (typedInput != null) {
+                renderContext.setTypeAnswerInput(typedInput)
+            }
             val back = renderContext.renderCard(this, state.topCard, SingleCardSide.BACK).html
             back to sched.describeNextStates(state.states)
         }
