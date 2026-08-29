@@ -18,6 +18,8 @@ import com.ichi2.anki.multimedia.MultimediaActivity
 import com.ichi2.anki.notetype.ManageNotetypes
 import com.ichi2.anki.preferences.PreferencesActivity
 import com.ichi2.anki.previewer.CardViewerActivity
+import com.ichi2.anki.ui.windows.managespace.ManageSpaceActivity
+import com.ichi2.anki.ui.windows.permissions.AllPermissionsExplanationActivity
 import com.ichi2.anki.utils.ConfigAwareSingleFragmentActivity
 import com.ichi2.testutils.ActivityList
 import com.ichi2.testutils.ActivityList.ActivityLaunchParam
@@ -106,10 +108,14 @@ class AllActivitiesScreenshotTest : ScreenshotTest() {
                 setOf(
                     // AccountActivityScreenshotTest
                     AccountActivity::class.java,
+                    // AllPermissionsExplanationScreenshotTest
+                    AllPermissionsExplanationActivity::class.java,
                     // CardTemplateEditorScreenshotTest
                     CardTemplateEditor::class.java,
                     // DeckPickerScreenshotTest
                     DeckPicker::class.java,
+                    // IntroductionScreenshotTest
+                    IntroductionActivity::class.java,
                     // StudyScreenScreenshotTest, PreviewerScreenshotTest and TemplatePreviewerScreenshotTest
                     CardViewerActivity::class.java,
                     // ManageNotetypesScreenshotTest,
@@ -118,10 +124,14 @@ class AllActivitiesScreenshotTest : ScreenshotTest() {
                     MultimediaActivity::class.java,
                     // PreferencesScreenshotTest
                     PreferencesActivity::class.java,
+                    // ReviewerScreenshotTest
+                    Reviewer::class.java,
                     // SharedDecksScreenshotTest
                     SharedDecksActivity::class.java,
                     // StudyOptionsScreenshotTest
                     StudyOptionsActivity::class.java,
+                    // ManageSpaceScreenshotTest
+                    ManageSpaceActivity::class.java,
                     // InfoScreenshotTest
                     Info::class.java,
                 )
