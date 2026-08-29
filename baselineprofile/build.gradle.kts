@@ -74,12 +74,11 @@ dependencies {
 androidComponents {
     onVariants { v ->
         val artifactsLoader = v.artifacts.getBuiltArtifactsLoader()
-        // Pull the applicationId from the actual built APK instead of
-        // hardcoding `com.ichi2.anki`. Most of us build with something like
-        // `-PcustomSuffix=".bp"` so the benchmark APK installs next to our
-        // real AnkiDroid (`com.ichi2.anki.bp`) rather than replacing it.
-        // If we hardcoded the fallback, the benchmark would happily target
-        // the production app and nuke your actual collection.
+        // Pull the applicationId from the actual plugin-generated tested APK instead of
+        // hardcoding it. The app config gives playNonMinifiedRelease an isolated
+        // `.baselineprofile` suffix so profile generation cannot target the production app.
+        // If resolution fails, refuse to fall back: targeting production could erase a real
+        // collection.
         v.instrumentationRunnerArguments.put(
             "targetAppId",
             v.testedApks.map {

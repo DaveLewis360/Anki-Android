@@ -4,7 +4,10 @@ package com.ichi2.anki.ui.expressive
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import anki.scheduler.CardAnswer.Rating
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.sched.CurrentQueueState
@@ -22,6 +25,7 @@ import kotlinx.coroutines.launch
  */
 class StudyViewModel(
     application: Application,
+    private val studyGateway: ExpressiveStudyGateway,
 ) : AndroidViewModel(application) {
     private val _state = MutableStateFlow<StudyUiState>(StudyUiState.Loading)
     val state: StateFlow<StudyUiState> = _state.asStateFlow()
@@ -75,7 +79,7 @@ class StudyViewModel(
         _transition.value = CardTransition.QUESTION_RISE
         viewModelScope.launch {
             try {
-                ExpressiveCollection.selectDeck(deckId)
+                studyGateway.selectDeck(deckId)
             } catch (e: Exception) {
                 android.util.Log.w("ExpressiveStudy", "selectDeck failed", e)
             }
@@ -87,7 +91,7 @@ class StudyViewModel(
         viewModelScope.launch {
             _state.value =
                 try {
-                    val card = ExpressiveCollection.currentCard(getApplication())
+                    val card = studyGateway.currentCard(getApplication())
                     if (card == null) {
                         StudyUiState.Finished
                     } else {
@@ -115,7 +119,7 @@ class StudyViewModel(
             _state.value =
                 try {
                     val (back, intervals) =
-                        ExpressiveCollection.revealCard(getApplication(), s.card.queueState, typedInput)
+                        studyGateway.revealCard(getApplication(), s.card.queueState, typedInput)
                     StudyUiState.Answered(AnsweredCard(s.card, back, intervals), s.remaining)
                 } catch (e: Exception) {
                     StudyUiState.Error(e.message ?: "Failed to reveal card")
@@ -132,7 +136,7 @@ class StudyViewModel(
             if (rating == Rating.AGAIN) CardTransition.QUESTION_BACK else CardTransition.QUESTION_FORWARD
         viewModelScope.launch {
             try {
-                ExpressiveCollection.answer(s.card.card.queueState, rating)
+                studyGateway.answer(s.card.card.queueState, rating)
             } catch (e: Exception) {
                 android.util.Log.w("ExpressiveStudy", "study operation failed", e)
             }
@@ -146,7 +150,7 @@ class StudyViewModel(
         setWorking()
         viewModelScope.launch {
             try {
-                _marked.value = ExpressiveCollection.toggleMark(qs)
+                _marked.value = studyGateway.toggleMark(qs)
             } catch (e: Exception) {
                 android.util.Log.w("ExpressiveStudy", "study operation failed", e)
             }
@@ -160,7 +164,7 @@ class StudyViewModel(
         setWorking()
         viewModelScope.launch {
             try {
-                _flag.value = ExpressiveCollection.cycleFlag(qs)
+                _flag.value = studyGateway.cycleFlag(qs)
             } catch (e: Exception) {
                 android.util.Log.w("ExpressiveStudy", "study operation failed", e)
             }
@@ -168,16 +172,16 @@ class StudyViewModel(
         }
     }
 
-    fun undo() = runAction { ExpressiveCollection.undoLast() }
+    fun undo() = runAction { studyGateway.undoLast() }
 
     fun buryCurrent() {
         val qs = currentQueue() ?: return
-        runAction { ExpressiveCollection.buryCurrent(qs) }
+        runAction { studyGateway.buryCurrent(qs) }
     }
 
     fun suspendCurrent() {
         val qs = currentQueue() ?: return
-        runAction { ExpressiveCollection.suspendCurrent(qs) }
+        runAction { studyGateway.suspendCurrent(qs) }
     }
 
     private fun runAction(block: suspend () -> Unit) {
@@ -199,4 +203,20 @@ class StudyViewModel(
             is StudyUiState.Answered -> s.card.card.queueState
             else -> null
         }
+
+    companion object {
+        /** Production factory with an injectable gateway for boundary tests. */
+        fun factory(studyGateway: ExpressiveStudyGateway = ExpressiveCollection): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    StudyViewModel(
+                        application =
+                            checkNotNull(
+                                this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY],
+                            ),
+                        studyGateway = studyGateway,
+                    )
+                }
+            }
+    }
 }

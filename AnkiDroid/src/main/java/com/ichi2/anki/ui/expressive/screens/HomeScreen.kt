@@ -37,6 +37,7 @@ import anki.scheduler.CustomStudyRequest.Cram.CramKind
 import anki.scheduler.copy
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
+import com.ichi2.anki.ui.expressive.ExpressiveDeckGateway
 import com.ichi2.anki.ui.expressive.UiDeck
 import com.ichi2.anki.ui.expressive.components.DeckCard
 import com.ichi2.anki.ui.expressive.components.ExpressiveFab
@@ -55,6 +56,7 @@ fun HomeScreen(
     onAddCard: () -> Unit,
     onDeckOptions: (deckId: DeckId, isFiltered: Boolean) -> Unit,
     refreshKey: Int = 0,
+    deckGateway: ExpressiveDeckGateway = ExpressiveCollection,
 ) {
     var decks by remember { mutableStateOf<List<UiDeck>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -69,8 +71,7 @@ fun HomeScreen(
     fun reload() {
         scope.launch {
             try {
-                ExpressiveCollection.ensureTypeTestCard()
-                decks = ExpressiveCollection.loadDecks()
+                decks = deckGateway.loadDecks()
                 error = null
             } catch (e: Exception) {
                 error = e.message ?: "Failed to load decks"
@@ -159,8 +160,8 @@ fun HomeScreen(
                         onClick = {
                             if (deck.children.isNotEmpty()) {
                                 scope.launch {
-                                    ExpressiveCollection.setCollapsed(deck.did, !deck.collapsed)
-                                    decks = ExpressiveCollection.loadDecks()
+                                    deckGateway.setCollapsed(deck.did, !deck.collapsed)
+                                    decks = deckGateway.loadDecks()
                                 }
                             } else {
                                 onDeckClick(deck.did, deck.name)
@@ -216,7 +217,7 @@ fun HomeScreen(
             onDismiss = { renameDeck = null },
             onRename = { newName ->
                 scope.launch {
-                    ExpressiveCollection.renameDeck(deck.did, newName)
+                    deckGateway.renameDeck(deck.did, newName)
                     renameDeck = null
                     reload()
                 }
@@ -232,7 +233,7 @@ fun HomeScreen(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        ExpressiveCollection.deleteDeck(deck.did)
+                        deckGateway.deleteDeck(deck.did)
                         deleteDeck = null
                         reload()
                     }
@@ -249,7 +250,7 @@ fun HomeScreen(
             onDismiss = { showAddDeck = false },
             onCreate = { name ->
                 scope.launch {
-                    ExpressiveCollection.createDeck(name)
+                    deckGateway.createDeck(name)
                     showAddDeck = false
                     reload()
                 }
@@ -260,11 +261,12 @@ fun HomeScreen(
     customStudyDeck?.let { deck ->
         CustomStudyDialog(
             deck = deck,
+            deckGateway = deckGateway,
             onDismiss = { customStudyDeck = null },
             onDone = { openSessionId ->
                 customStudyDeck = null
                 scope.launch {
-                    val current = ExpressiveCollection.loadDecks()
+                    val current = deckGateway.loadDecks()
                     decks = current
                     if (openSessionId != null) {
                         fun findSession(list: List<UiDeck>): UiDeck? =
@@ -290,6 +292,7 @@ private val customStudyModes =
 @Composable
 private fun CustomStudyDialog(
     deck: UiDeck,
+    deckGateway: ExpressiveDeckGateway,
     onDismiss: () -> Unit,
     onDone: (openSessionId: DeckId?) -> Unit,
 ) {
@@ -372,7 +375,7 @@ private fun CustomStudyDialog(
                                             }
                                 }
                             }
-                        ExpressiveCollection.customStudy(request)
+                        deckGateway.customStudy(request)
                         // Session modes create a filtered deck worth opening right away.
                         onDone(if (mode == "forgot" || mode == "ahead" || mode == "tags") deck.did else null)
                     }

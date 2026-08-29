@@ -23,20 +23,20 @@ Firebase Test Lab or similar).
 
 ## Regenerate the profile
 
-Run with `-PcustomSuffix` and `-PcustomName` so the benchmarked APK installs
-alongside your real AnkiDroid (`com.ichi2.anki.bp`) instead of replacing it.
-Without these flags the build targets `com.ichi2.anki`, the production app
-ID — installing it would clobber your real collection or fail with a
-signing-key mismatch.
+The Baseline Profile plugin generates an isolated `playNonMinifiedRelease`
+target. Its application ID is
+`io.github.davelewis360.ankidroid.m3expressive.baselineprofile`, its launcher
+name is `AnkiDroid M3 Expressive Baseline Profile`, and it uses debug signing.
+It therefore installs alongside production, debug, and the custom `.benchmark`
+target without requiring production release credentials. The instrumentation
+reads the tested APK ID dynamically, so no application ID argument is needed.
 
 ```sh
-./gradlew :AnkiDroid:generateBaselineProfile \
-  -PcustomSuffix=".bp" \
-  -PcustomName="AnkiDroid Baseline"
+./gradlew :AnkiDroid:generateBaselineProfile
 ```
 
-Takes a few minutes. The plugin installs a non-minified build, runs the
-cold-start journey (launch app -> dismiss intro screen if present -> wait
+Takes a few minutes. The plugin installs the isolated non-minified target, runs
+the cold-start journey (launch app -> dismiss intro screen if present -> wait
 for DeckPicker), and writes the result to `baseline-prof.txt`.
 
 ## When to regenerate

@@ -78,27 +78,17 @@ data class ExpressiveStats(
 )
 
 /** Bridges the real collection to the expressive UI. */
-object ExpressiveCollection {
+object ExpressiveCollection :
+    ExpressiveDeckGateway,
+    ExpressiveStudyGateway,
+    ExpressiveBrowseGateway,
+    ExpressiveStatsGateway {
     /** Real deck tree (counts include subdecks, matching the classic deck picker). */
     @NeedsTest("empty collection yields empty list")
-    suspend fun loadDecks(): List<UiDeck> =
+    override suspend fun loadDecks(): List<UiDeck> =
         withCol {
             sched.deckDueTree().children.map { it.toUiDeck(0) }
         }
-
-    /** Creates one type-answer demo card once, so the typing flow can be tried. */
-    suspend fun ensureTypeTestCard() {
-        withCol {
-            if (decks.byName("Gépelős teszt") != null) return@withCol
-            notetypes.byName("Basic (type in the answer)")?.let { typeNotetype ->
-                val deckId = decks.id("Gépelős teszt")
-                val note = newNote(typeNotetype)
-                note.setField(0, "What does 'scarce' mean?")
-                note.setField(1, "ritka, szűkös")
-                addNote(note, deckId)
-            }
-        }
-    }
 
     private fun DeckNode.toUiDeck(depth: Int): UiDeck =
         UiDeck(
@@ -114,26 +104,26 @@ object ExpressiveCollection {
             children = children.map { it.toUiDeck(depth + 1) },
         )
 
-    suspend fun setCollapsed(
+    override suspend fun setCollapsed(
         did: DeckId,
         collapsed: Boolean,
     ) = withCol {
         decks.setCollapsed(did, collapsed, SetDeckCollapsedRequest.Scope.REVIEWER)
     }
 
-    suspend fun renameDeck(
+    override suspend fun renameDeck(
         did: DeckId,
         newName: String,
     ) = withCol {
         decks.rename(did, newName)
     }
 
-    suspend fun deleteDeck(did: DeckId) =
+    override suspend fun deleteDeck(did: DeckId) =
         withCol {
             decks.remove(listOf(did))
         }
 
-    suspend fun createDeck(name: String): DeckId =
+    override suspend fun createDeck(name: String): DeckId =
         withCol {
             decks.id(name)
         }
@@ -142,17 +132,17 @@ object ExpressiveCollection {
      * Runs a custom-study request against [deckId] (extends daily limits or builds a
      * temporary "Custom Study Session" filtered deck, depending on the request).
      */
-    suspend fun customStudy(request: anki.scheduler.CustomStudyRequest) =
+    override suspend fun customStudy(request: anki.scheduler.CustomStudyRequest) =
         com.ichi2.anki.observability
             .undoableOp { sched.customStudy(request) }
 
-    suspend fun selectDeck(did: DeckId) =
+    override suspend fun selectDeck(did: DeckId) =
         withCol {
             decks.select(did)
         }
 
     /** Renders the current card's question side; null when the queue is empty. */
-    suspend fun currentCard(context: Context): StudyCardUi? =
+    override suspend fun currentCard(context: Context): StudyCardUi? =
         withCol {
             val state = sched.currentQueueState() ?: return@withCol null
             val renderContext = renderContext(context)
@@ -171,10 +161,10 @@ object ExpressiveCollection {
 
     /** Renders the answer side and the four next-interval labels.
      *  [typedInput] is the learner's typed answer for type-answer cards. */
-    suspend fun revealCard(
+    override suspend fun revealCard(
         context: Context,
         state: CurrentQueueState,
-        typedInput: String? = null,
+        typedInput: String?,
     ): Pair<String, List<String>> =
         withCol {
             val renderContext = renderContext(context)
@@ -186,7 +176,7 @@ object ExpressiveCollection {
             back to sched.describeNextStates(state.states)
         }
 
-    suspend fun answer(
+    override suspend fun answer(
         state: CurrentQueueState,
         rating: Rating,
     ) = withCol {
@@ -194,7 +184,7 @@ object ExpressiveCollection {
     }
 
     /** Toggles the "marked" tag on the current card; returns the new marked state. */
-    suspend fun toggleMark(state: CurrentQueueState): Boolean =
+    override suspend fun toggleMark(state: CurrentQueueState): Boolean =
         withCol {
             // Re-read the note: the cached queue card's tags go stale after the
             // first toggle, which would make every second tap a no-op.
@@ -205,7 +195,7 @@ object ExpressiveCollection {
         }
 
     /** Cycles the card flag 0 -> 1 .. 7 -> 0; returns the new flag. */
-    suspend fun cycleFlag(state: CurrentQueueState): Int =
+    override suspend fun cycleFlag(state: CurrentQueueState): Int =
         withCol {
             // Fresh read for the same reason as in toggleMark.
             val card = getCard(state.topCard.id)
@@ -214,23 +204,23 @@ object ExpressiveCollection {
             next
         }
 
-    suspend fun buryCurrent(state: CurrentQueueState) =
+    override suspend fun buryCurrent(state: CurrentQueueState) =
         withCol {
             sched.buryCards(listOf(state.topCard.id))
         }
 
-    suspend fun suspendCurrent(state: CurrentQueueState) =
+    override suspend fun suspendCurrent(state: CurrentQueueState) =
         withCol {
             sched.suspendCards(listOf(state.topCard.id))
         }
 
-    suspend fun undoLast() =
+    override suspend fun undoLast() =
         withCol {
             undo()
         }
 
     /** Real statistics for the Stats tab, computed from the collection. */
-    suspend fun loadStats(): ExpressiveStats =
+    override suspend fun loadStats(): ExpressiveStats =
         withCol {
             val cutoff = sched.dayCutoff
             // dayCutoff is EpochSeconds (seconds); revlog ids are epoch milliseconds.
@@ -297,10 +287,10 @@ object ExpressiveCollection {
      * Real card search for the Browse tab. [filter] is one of
      * All / Due / New / Suspended / Marked and maps to Anki search syntax.
      */
-    suspend fun searchCards(
+    override suspend fun searchCards(
         query: String,
         filter: String,
-        limit: Int = 60,
+        limit: Int,
     ): List<UiCard> =
         withCol {
             val fullQuery =

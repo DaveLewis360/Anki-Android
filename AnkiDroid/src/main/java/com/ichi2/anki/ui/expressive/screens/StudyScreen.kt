@@ -48,7 +48,9 @@ import anki.scheduler.CardAnswer.Rating
 import com.ichi2.anki.R
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.ui.expressive.CardTransition
+import com.ichi2.anki.ui.expressive.ExpressiveCollection
 import com.ichi2.anki.ui.expressive.ExpressiveSettings
+import com.ichi2.anki.ui.expressive.ExpressiveStudyGateway
 import com.ichi2.anki.ui.expressive.StudyUiState
 import com.ichi2.anki.ui.expressive.StudyViewModel
 import com.ichi2.anki.ui.expressive.components.AnswerButtons
@@ -66,9 +68,10 @@ fun StudyScreen(
     deckName: String,
     gestures: ExpressiveSettings,
     onClose: () -> Unit,
+    studyGateway: ExpressiveStudyGateway = ExpressiveCollection,
 ) {
     val context = LocalContext.current
-    val viewModel: StudyViewModel = viewModel()
+    val viewModel: StudyViewModel = viewModel(factory = StudyViewModel.factory(studyGateway))
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val marked by viewModel.marked.collectAsStateWithLifecycle()

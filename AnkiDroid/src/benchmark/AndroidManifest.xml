@@ -1,12 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!--
   Benchmark-only manifest overlay. Merged into the benchmark buildType only.
-  Keeps <profileable> out of production release APKs.
+  Keeps profiling and internal database APIs out of production release APKs.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission
+        android:name="io.github.davelewis360.ankidroid.m3expressive.permission.READ_WRITE_DATABASE"
+        tools:node="remove" />
+
+    <permission
+        android:name="${applicationId}.permission.READ_WRITE_DATABASE"
+        tools:node="remove" />
+
     <application>
+        <provider
+            android:name=".provider.CardContentProvider"
+            tools:node="remove" />
+
         <!--
             Allows Macrobenchmark / Perfetto to attach via adb shell.
             Required by the :baselineprofile module to collect baseline

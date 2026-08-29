@@ -61,6 +61,44 @@ def gitCommitHash = providers.exec {
 def buildTimeMillis = providers.gradleProperty("buildTime")
     .orElse(providers.provider { System.currentTimeMillis().toString() })
 
+// Release artifacts must always use an explicitly supplied keystore. Keep this validation
+// execution-time only so debug builds, unit tests, lint, and Gradle sync need no signing secrets.
+def nonBlankEnvironmentValue = { String name ->
+    def value = System.getenv(name)
+    value == null || value.trim().isEmpty() ? null : value
+}
+def releaseKeystorePath = nonBlankEnvironmentValue("KEYSTOREPATH")
+def releaseKeystorePassword = nonBlankEnvironmentValue("KEYSTOREPWD") ?: nonBlankEnvironmentValue("KSTOREPWD")
+def releaseKeyAlias = nonBlankEnvironmentValue("KEYALIAS")
+def releaseKeyPassword = nonBlankEnvironmentValue("KEYPWD")
+def missingReleaseSigningCredentials = [
+        [name: "KEYSTOREPATH", value: releaseKeystorePath],
+        [name: "KEYSTOREPWD (or legacy KSTOREPWD)", value: releaseKeystorePassword],
+        [name: "KEYALIAS", value: releaseKeyAlias],
+        [name: "KEYPWD", value: releaseKeyPassword],
+].findAll { it.value == null }.collect { it.name }
+def releaseKeystoreFile = releaseKeystorePath == null ? null : file(releaseKeystorePath)
+
+def validateReleaseSigningCredentials = tasks.register("validateReleaseSigningCredentials") {
+    group = "verification"
+    description = "Fails unless all release signing credentials reference an existing keystore."
+    doLast {
+        if (!missingReleaseSigningCredentials.isEmpty()) {
+            throw new GradleException(
+                    "Release signing credentials are missing or empty: ${missingReleaseSigningCredentials.join(', ')}. " +
+                            "Set KEYSTOREPATH, KEYSTOREPWD (or legacy KSTOREPWD), KEYALIAS, and KEYPWD; " +
+                            "no fallback release keystore is used."
+            )
+        }
+        if (!releaseKeystoreFile.isFile()) {
+            throw new GradleException(
+                    "Release keystore does not exist or is not a file: ${releaseKeystoreFile}. " +
+                            "Set KEYSTOREPATH to an existing keystore file."
+            )
+        }
+    }
+}
+
 android {
     namespace = "com.ichi2.anki"
 
@@ -81,14 +119,14 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ichi2.anki"
+        applicationId = "io.github.davelewis360.ankidroid.m3expressive"
         buildConfigField "Boolean", "CI", (System.getenv("CI") == "true").toString()
         buildConfigField "String", "ACRA_URL", '"https://ankidroid.org/acra/report"'
         buildConfigField "String", "BACKEND_VERSION", "\"${libs.versions.ankiBackend.get()}\""
         buildConfigField "Boolean", "ENABLE_LEAK_CANARY", "false"
         buildConfigField "String", "GIT_COMMIT_HASH", "\"${gitCommitHash.get()}\""
         buildConfigField "long", "BUILD_TIME", buildTimeMillis.get()
-        resValue "string", "app_name", "AnkiDroid"
+        resValue "string", "app_name", "AnkiDroid M3 Expressive – Unofficial"
 
         // The version number is of the form:
         // <major>.<minor>.<maintenance>[dev|alpha<build>|beta<build>|]
@@ -111,14 +149,13 @@ android {
         //
         // This ensures the correct ordering between the various types of releases (dev < alpha < beta < release) which is
         // needed for upgrades to be offered correctly.
-        versionCode=22500103
-        // If you change this to a new version, you probably also want to update .gradle/workflows/milestone.yml for the new version...
-        versionName="2.25.0alpha3"
+        versionCode=100101
+        versionName="0.1.0-alpha.1"
         minSdk = libs.versions.minSdk.get().toInteger()
 
         // After #13695: change .tests_emulator.yml
         targetSdk = libs.versions.targetSdk.get().toInteger()
-        testApplicationId = "com.ichi2.anki.tests"
+        testApplicationId = "io.github.davelewis360.ankidroid.m3expressive.tests"
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = 'com.ichi2.testutils.NewCollectionPathTestRunner'
 
@@ -148,17 +185,11 @@ android {
     }
     signingConfigs {
         release {
-            def keystorePath = System.getenv("KEYSTOREPATH")
-            if (keystorePath != null && !keystorePath.trim().isEmpty()) {
-                storeFile file(keystorePath)
-                storePassword System.getenv("KEYSTOREPWD") ?: System.getenv("KSTOREPWD")
-                keyAlias System.getenv("KEYALIAS")
-                keyPassword System.getenv("KEYPWD")
-            } else {
-                storeFile file("${rootDir}/tools/fallback-release-keystore.jks")
-                storePassword "Test@123"
-                keyAlias "my-key"
-                keyPassword "Test@123"
+            if (missingReleaseSigningCredentials.isEmpty()) {
+                storeFile releaseKeystoreFile
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
             }
         }
     }
@@ -167,9 +198,7 @@ android {
             versionNameSuffix "-debug"
             debuggable true
             applicationIdSuffix ".debug"
-            // Distinct launcher name so this fork is distinguishable on devices
-            // that also have stock AnkiDroid and other forks installed
-            resValue "string", "app_name", "AnkiDroid M3 Expressive"
+            resValue "string", "app_name", "AnkiDroid M3 Expressive Debug"
             splits.abi.universalApk = true // Build universal APK for debug always
             // Check Crash Reports page on developer wiki for info on ACRA testing
             // buildConfigField "String", "ACRA_URL", '"https://918f7f55-f238-436c-b34f-c8b5f1331fe5-bluemix.cloudant.com/acra-ankidroid/_design/acra-storage/_update/report"'
@@ -205,24 +234,26 @@ android {
             splits.abi.universalApk = universalApkEnabled // Build universal APK for release with `-Duniversal-apk=true`
             signingConfig = signingConfigs.release
 
-            // syntax: assembleRelease -PcustomSuffix="suffix" -PcustomName="New name"
-            if (project.hasProperty("customSuffix")) {
-                // the suffix needs a '.' at the start
-                applicationIdSuffix project.property("customSuffix").replaceFirst(/^\.*/, ".")
-            }
-            if (project.hasProperty("customName")) {
-                resValue "string", "app_name", project.property("customName")
-            }
-
-            resValue 'color', 'anki_foreground_icon_color_0', "#FF29B6F6"
-            resValue 'color', 'anki_foreground_icon_color_1', "#FF0288D1"
+            // Expressive release branding; keep the vector geometry unchanged.
+            resValue 'color', 'anki_foreground_icon_color_0', "#FF7F67BE"
+            resValue 'color', 'anki_foreground_icon_color_1', "#FF00A6A6"
         }
 
         create('benchmark') {
             initWith release
+            applicationIdSuffix ".benchmark"
+            resValue "string", "app_name", "AnkiDroid M3 Expressive Benchmark"
             signingConfig signingConfigs.debug
             matchingFallbacks = ['release']
             debuggable false
+        }
+
+        // The Baseline Profile plugin owns the effective non-minified/profileable settings;
+        // declaring its generated build type here customizes only identity and signing.
+        create('nonMinifiedRelease') {
+            applicationIdSuffix ".baselineprofile"
+            resValue "string", "app_name", "AnkiDroid M3 Expressive Baseline Profile"
+            signingConfig signingConfigs.debug
         }
     }
 
@@ -368,6 +399,37 @@ android {
         resources {
             excludes += ['META-INF/DEPENDENCIES']
         }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType('nonMinifiedRelease')) { variant ->
+        // The plugin clones release sources for this generated target, so attach its safety
+        // overlay explicitly instead of relying on conventional build-type source discovery.
+        variant.sources.manifests.addStaticManifestFile(
+                'src/nonMinifiedRelease/AndroidManifest.xml'
+        )
+    }
+}
+
+def forbiddenReleaseIdentityProperties = ["customSuffix", "customName"].findAll { project.hasProperty(it) }
+if (!forbiddenReleaseIdentityProperties.isEmpty()) {
+    throw new GradleException(
+            "Release identity overrides are not supported: -P${forbiddenReleaseIdentityProperties.join(', -P')}. " +
+                    "The canonical application ID and app name are fixed to preserve the API authority contract."
+    )
+}
+
+// Only canonical production artifacts require production credentials. Keeping this exact-name
+// allowlist excludes compile, lint, unit-test, and plugin-generated nonMinifiedRelease tasks.
+def productionReleaseSigningTasks = [
+        "validateSigningPlayRelease", "assemblePlayRelease", "bundlePlayRelease", "packagePlayRelease", "installPlayRelease",
+        "validateSigningAmazonRelease", "assembleAmazonRelease", "bundleAmazonRelease", "packageAmazonRelease", "installAmazonRelease",
+        "validateSigningFullRelease", "assembleFullRelease", "bundleFullRelease", "packageFullRelease", "installFullRelease",
+] as Set
+tasks.configureEach { task ->
+    if (productionReleaseSigningTasks.contains(task.name)) {
+        task.dependsOn(validateReleaseSigningCredentials)
     }
 }
 

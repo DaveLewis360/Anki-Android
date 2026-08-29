@@ -41,13 +41,14 @@ import androidx.compose.ui.unit.dp
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
 import com.ichi2.anki.ui.expressive.ExpressiveStats
+import com.ichi2.anki.ui.expressive.ExpressiveStatsGateway
 import com.ichi2.anki.ui.expressive.theme.PillShape
 
 private val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 
 /** Stats: real collection statistics with an expressive dashboard layout. */
 @Composable
-fun StatsScreen() {
+fun StatsScreen(statsGateway: ExpressiveStatsGateway = ExpressiveCollection) {
     var stats by remember { mutableStateOf<ExpressiveStats?>(null) }
     var failed by remember { mutableStateOf(false) }
     var animateIn by remember { mutableStateOf(false) }
@@ -55,7 +56,7 @@ fun StatsScreen() {
     LaunchedEffect(Unit) {
         stats =
             try {
-                ExpressiveCollection.loadStats()
+                statsGateway.loadStats()
             } catch (e: Exception) {
                 failed = true
                 null

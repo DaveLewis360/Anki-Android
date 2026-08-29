@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.ichi2.anki.R
 import com.ichi2.anki.common.ui.TransitionDirection
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
+import com.ichi2.anki.ui.expressive.ExpressiveBrowseGateway
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
 import com.ichi2.anki.ui.expressive.UiCard
 import com.ichi2.anki.ui.expressive.UiCardState
@@ -56,7 +57,7 @@ private val filters = listOf("All", "Due", "New", "Suspended", "Marked")
 
 /** Browse: real collection search, filter chips, card rows with preview + edit. */
 @Composable
-fun BrowseScreen() {
+fun BrowseScreen(browseGateway: ExpressiveBrowseGateway = ExpressiveCollection) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("All") }
@@ -69,7 +70,7 @@ fun BrowseScreen() {
         loading = true
         cards =
             try {
-                ExpressiveCollection.searchCards(query, filter)
+                browseGateway.searchCards(query, filter)
             } catch (e: Exception) {
                 emptyList()
             }
