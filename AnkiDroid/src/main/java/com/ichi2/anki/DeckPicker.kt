@@ -159,6 +159,8 @@ import com.ichi2.anki.introduction.hasCollectionStoragePermissions
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.sched.DeckNode
 import com.ichi2.anki.mediacheck.MediaCheckFragment
+import com.ichi2.anki.migration.ExistingProfileMigrationActivity
+import com.ichi2.anki.migration.ExistingProfileMigrationService
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.pages.AnkiPackageImporterFragment
 import com.ichi2.anki.pages.CongratsPage
@@ -179,6 +181,7 @@ import com.ichi2.anki.ui.BottomFadeFrameLayout
 import com.ichi2.anki.ui.ResizablePaneManager
 import com.ichi2.anki.ui.animations.fadeIn
 import com.ichi2.anki.ui.animations.fadeOut
+import com.ichi2.anki.ui.expressive.ExpressiveHomeActivity
 import com.ichi2.anki.ui.internationalization.sentenceCase
 import com.ichi2.anki.ui.windows.permissions.PermissionsActivity
 import com.ichi2.anki.utils.Destination
@@ -192,6 +195,7 @@ import com.ichi2.anki.utils.ext.setImageDrawableSafe
 import com.ichi2.anki.utils.ext.showDialogFragment
 import com.ichi2.anki.widgets.DeckAdapter
 import com.ichi2.anki.widgets.DeckHierarchyLinesDecoration
+import com.ichi2.anki.worker.SyncMediaPolicy
 import com.ichi2.anki.worker.SyncMediaWorker
 import com.ichi2.anki.worker.SyncWorker
 import com.ichi2.anki.worker.UniqueWorkNames
@@ -265,6 +269,19 @@ open class DeckPicker :
     ApkgImportResultLauncherProvider,
     CsvImportResultLauncherProvider,
     CollectionPermissionScreenLauncher {
+    enum class PostStartupDestination {
+        CLASSIC,
+        EXPRESSIVE,
+    }
+
+    private var postStartupDestinationHandled = false
+    private var startupGatePassed = false
+    private var loginStartupSyncPending = false
+    private var loginStartupSyncBlocked = false
+    private var loginStartupSyncGeneration = 0L
+    private var loginStartupActiveSyncGeneration: Long? = null
+    private var loginStartupConflictGeneration: Long? = null
+
     val viewModel: DeckPickerViewModel by viewModels()
 
     private val importViewModel: ImportViewModel by viewModels()
@@ -488,6 +505,30 @@ open class DeckPicker :
         }
 
         super.onCreate(savedInstanceState)
+        val collectionDirectory =
+            kotlin.runCatching { CollectionHelper.getCurrentAnkiDroidDirectory(this) }.getOrNull()
+        if (collectionDirectory != null && ExistingProfileMigrationService.hasInterruptedMigration(collectionDirectory)) {
+            Timber.w("Interrupted Classic migration detected; routing to recovery before collection startup")
+            val recovery = ExistingProfileMigrationActivity.getIntent(this, recoveryOnly = true)
+            copyPostStartupDestination(intent, recovery)
+            startActivity(recovery)
+            finish()
+            return
+        }
+        if (ExistingProfileMigrationService.hasCompletedMigration(this) && !hasShownAppIntro()) {
+            sharedPrefs().edit { putBoolean(IntroductionActivity.INTRODUCTION_SLIDES_SHOWN, true) }
+        }
+        postStartupDestinationHandled = savedInstanceState?.getBoolean(STATE_POST_START_DESTINATION_HANDLED) ?: false
+        startupGatePassed = savedInstanceState?.getBoolean(STATE_STARTUP_GATE_PASSED) ?: false
+        loginStartupSyncPending =
+            savedInstanceState?.getBoolean(STATE_LOGIN_STARTUP_SYNC_PENDING)
+                ?: isExpressiveLoginStartup(intent)
+        loginStartupSyncBlocked = savedInstanceState?.getBoolean(STATE_LOGIN_STARTUP_SYNC_BLOCKED) ?: false
+        loginStartupSyncGeneration = savedInstanceState?.getLong(STATE_LOGIN_STARTUP_SYNC_GENERATION) ?: 0L
+        loginStartupConflictGeneration =
+            savedInstanceState
+                ?.takeIf { it.containsKey(STATE_LOGIN_STARTUP_CONFLICT_GENERATION) }
+                ?.getLong(STATE_LOGIN_STARTUP_CONFLICT_GENERATION)
         enableEdgeToEdge(
             statusBarStyle =
                 SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) {
@@ -503,6 +544,7 @@ open class DeckPicker :
         if (!hasShownAppIntro() && AnkiDroidApp.fatalError == null) {
             Timber.i("Displaying app intro")
             val appIntro = Intent(this, IntroductionActivity::class.java)
+            copyPostStartupDestination(intent, appIntro)
             appIntro.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(appIntro)
             finish() // calls onDestroy() immediately
@@ -511,7 +553,9 @@ open class DeckPicker :
         Timber.d("Not displaying app intro")
         if (intent.hasExtra(INTENT_SYNC_FROM_LOGIN)) {
             Timber.d("launched from introduction activity login: syncing")
-            syncOnResume = true
+            syncOnResume =
+                !isExpressiveLoginStartup(intent) ||
+                (loginStartupSyncPending && !loginStartupSyncBlocked)
         }
 
         setViewBinding(binding)
@@ -764,6 +808,7 @@ open class DeckPicker :
                     launchCatchingRequiringOneWaySyncDiscardUndo {
                         this@DeckPicker.withProgress { withCol { sched.upgradeToV2() } }
                         showThemedToast(this@DeckPicker, TR.schedulingUpdateDone(), false)
+                        reevaluatePostStartupDestination()
                     }
                 },
                 onCancel = {
@@ -1509,6 +1554,14 @@ open class DeckPicker :
             }
         }
         outState.putSerializable("mediaUsnOnConflict", mediaUsnOnConflict)
+        outState.putBoolean(STATE_POST_START_DESTINATION_HANDLED, postStartupDestinationHandled)
+        outState.putBoolean(STATE_STARTUP_GATE_PASSED, startupGatePassed)
+        outState.putBoolean(STATE_LOGIN_STARTUP_SYNC_PENDING, loginStartupSyncPending)
+        outState.putBoolean(STATE_LOGIN_STARTUP_SYNC_BLOCKED, loginStartupSyncBlocked)
+        outState.putLong(STATE_LOGIN_STARTUP_SYNC_GENERATION, loginStartupSyncGeneration)
+        loginStartupConflictGeneration?.let {
+            outState.putLong(STATE_LOGIN_STARTUP_CONFLICT_GENERATION, it)
+        }
         floatingActionMenu.showFloatingActionButton()
     }
 
@@ -1580,8 +1633,8 @@ open class DeckPicker :
             else -> {
                 if (runInBackground) {
                     Timber.i("autoSync: starting background")
-                    val auth = syncAuth() ?: return false
-                    SyncWorker.start(this, auth, shouldFetchMedia())
+                    val credential = currentSyncCredential() ?: return false
+                    SyncWorker.start(this, credential.generation, SyncMediaPolicy.current())
                 } else {
                     Timber.i("autoSync: starting foreground")
                     sync()
@@ -1782,11 +1835,117 @@ open class DeckPicker :
      * Automatic sync
      */
     private fun onFinishedStartup() {
+        startupGatePassed = true
+        if (postStartupDestination(intent) == PostStartupDestination.EXPRESSIVE) {
+            reevaluatePostStartupDestination()
+            return
+        }
         launchCatchingTask {
             if (!automaticSync()) {
                 BackupPromptDialog.showIfAvailable(this@DeckPicker)
             }
         }
+    }
+
+    private fun reevaluatePostStartupDestination() {
+        if (
+            postStartupDestinationHandled ||
+            !startupGatePassed ||
+            loginStartupSyncPending ||
+            postStartupDestination(intent) != PostStartupDestination.EXPRESSIVE
+        ) {
+            return
+        }
+
+        launchCatchingTask {
+            val requiresSchedulerUpgrade =
+                withCol { (config.get("schedVer") as? Long ?: 1L) == 1L }
+            if (!requiresSchedulerUpgrade) {
+                launchPostStartupDestinationIfRequested()
+            }
+        }
+    }
+
+    internal fun loginStartupSyncGenerationFor(conflict: ConflictResolution?): Long? {
+        if (!loginStartupSyncPending) {
+            return null
+        }
+        return if (conflict == null) {
+            loginStartupSyncBlocked = false
+            loginStartupSyncGeneration++
+            loginStartupConflictGeneration = null
+            loginStartupSyncGeneration.also { loginStartupActiveSyncGeneration = it }
+        } else {
+            loginStartupConflictGeneration?.also {
+                loginStartupSyncBlocked = false
+                loginStartupActiveSyncGeneration = it
+            }
+        }
+    }
+
+    internal fun onForegroundSyncAwaitingConflict(syncGeneration: Long?) {
+        if (
+            syncGeneration == null ||
+            syncGeneration != loginStartupActiveSyncGeneration ||
+            !loginStartupSyncPending
+        ) {
+            return
+        }
+        loginStartupConflictGeneration = syncGeneration
+        loginStartupActiveSyncGeneration = null
+        loginStartupSyncBlocked = true
+    }
+
+    internal fun onForegroundSyncFailed(syncGeneration: Long?) {
+        if (
+            syncGeneration == null ||
+            syncGeneration != loginStartupActiveSyncGeneration ||
+            !loginStartupSyncPending
+        ) {
+            return
+        }
+        loginStartupActiveSyncGeneration = null
+        loginStartupSyncBlocked = true
+    }
+
+    internal fun onForegroundSyncCompleted(syncGeneration: Long?) {
+        if (
+            syncGeneration == null ||
+            syncGeneration != loginStartupActiveSyncGeneration ||
+            !loginStartupSyncPending
+        ) {
+            return
+        }
+        loginStartupSyncPending = false
+        loginStartupSyncBlocked = false
+        loginStartupActiveSyncGeneration = null
+        loginStartupConflictGeneration = null
+        reevaluatePostStartupDestination()
+    }
+
+    private fun launchPostStartupDestinationIfRequested(): Boolean {
+        if (postStartupDestinationHandled) {
+            return true
+        }
+        if (
+            !startupGatePassed ||
+            loginStartupSyncPending ||
+            postStartupDestination(intent) != PostStartupDestination.EXPRESSIVE
+        ) {
+            return false
+        }
+
+        postStartupDestinationHandled = true
+        Timber.i("Startup complete; opening Expressive UI")
+        val expressiveIntent =
+            if (intent.getBooleanExtra(ExpressiveHomeActivity.EXTRA_EXTERNAL_IMPORT, false)) {
+                ExpressiveHomeActivity.getExternalImportIntent(this, intent)
+            } else {
+                Intent(this, ExpressiveHomeActivity::class.java)
+            }
+        startActivity(expressiveIntent)
+        finish()
+        return true
     }
 
     private fun showCollectionErrorDialog() {
@@ -1815,7 +1974,7 @@ open class DeckPicker :
         } else if (skip < 2 && !InitialActivity.isLatestVersion(preferences)) {
             Timber.i("AnkiDroid is being updated and a collection already exists.")
             // The user might appreciate us now, see if they will help us get better?
-            if (!preferences.contains(AnkiDroidUsageAnalytics.ANALYTICS_OPTIN_KEY)) {
+            if (BuildConfig.ENABLE_USAGE_ANALYTICS && !preferences.contains(AnkiDroidUsageAnalytics.ANALYTICS_OPTIN_KEY)) {
                 displayAnalyticsOptInDialog()
             }
 
@@ -1988,9 +2147,10 @@ open class DeckPicker :
      * from the mSyncConflictResolutionListener if the first attempt determines that a full-sync is required.
      */
     override fun sync(conflict: ConflictResolution?) {
-        val hkey = Prefs.hkey
-        if (hkey.isNullOrEmpty()) {
+        val startupSyncGeneration = loginStartupSyncGenerationFor(conflict)
+        if (!isLoggedIn()) {
             Timber.w("User not logged in")
+            onForegroundSyncFailed(startupSyncGeneration)
             pullToSyncWrapper.isRefreshing = false
             showSyncErrorDialog(SyncErrorDialog.Type.DIALOG_USER_NOT_LOGGED_IN_SYNC)
             return
@@ -2001,8 +2161,9 @@ open class DeckPicker :
             skipPrompt = conflict != null,
             // TODO: why is this needed? 1f91b2868d
             onDialogShown = ::refreshState,
+            onCancel = { onForegroundSyncFailed(startupSyncGeneration) },
         ) {
-            handleNewSync(conflict, shouldFetchMedia())
+            handleNewSync(conflict, shouldFetchMedia(), startupSyncGeneration)
         }
     }
 
@@ -2416,14 +2577,42 @@ open class DeckPicker :
 
         private const val PREF_DECK_PICKER_PANE_WEIGHT = "deckPickerPaneWeight"
         private const val PREF_STUDY_OPTIONS_PANE_WEIGHT = "studyOptionsPaneWeight"
+        private const val EXTRA_POST_START_DESTINATION = "com.ichi2.anki.POST_START_DESTINATION"
+        private const val STATE_POST_START_DESTINATION_HANDLED = "postStartupDestinationHandled"
+        private const val STATE_STARTUP_GATE_PASSED = "startupGatePassed"
+        private const val STATE_LOGIN_STARTUP_SYNC_PENDING = "loginStartupSyncPending"
+        private const val STATE_LOGIN_STARTUP_SYNC_BLOCKED = "loginStartupSyncBlocked"
+        private const val STATE_LOGIN_STARTUP_SYNC_GENERATION = "loginStartupSyncGeneration"
+        private const val STATE_LOGIN_STARTUP_CONFLICT_GENERATION = "loginStartupConflictGeneration"
+
+        private fun isExpressiveLoginStartup(intent: Intent): Boolean =
+            intent.hasExtra(INTENT_SYNC_FROM_LOGIN) &&
+                postStartupDestination(intent) == PostStartupDestination.EXPRESSIVE
+
+        internal fun postStartupDestination(intent: Intent): PostStartupDestination {
+            val value = intent.getStringExtra(EXTRA_POST_START_DESTINATION)
+            return PostStartupDestination.entries.firstOrNull { it.name == value } ?: PostStartupDestination.CLASSIC
+        }
+
+        internal fun hasPostStartupDestination(intent: Intent): Boolean = intent.hasExtra(EXTRA_POST_START_DESTINATION)
+
+        internal fun copyPostStartupDestination(
+            source: Intent,
+            target: Intent,
+        ) {
+            target.putExtra(EXTRA_POST_START_DESTINATION, postStartupDestination(source).name)
+        }
 
         /**
-         * Builds an intent for [DeckPicker]
+         * Builds an intent for [DeckPicker]. [postStartupDestination] is explicit so non-launcher
+         * routes remain on the classic UI unless they deliberately request the Expressive handoff.
          */
         fun getIntent(
             context: Context,
             autoSync: Boolean = false,
+            postStartupDestination: PostStartupDestination = PostStartupDestination.CLASSIC,
         ) = Intent(context, DeckPicker::class.java).apply {
+            putExtra(EXTRA_POST_START_DESTINATION, postStartupDestination.name)
             if (autoSync) {
                 putExtra(INTENT_SYNC_FROM_LOGIN, true)
             }
@@ -2433,10 +2622,22 @@ open class DeckPicker :
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         this.intent = intent
+        if (isExpressiveLoginStartup(intent)) {
+            loginStartupSyncPending = true
+            loginStartupSyncBlocked = false
+            loginStartupActiveSyncGeneration = null
+            loginStartupConflictGeneration = null
+        } else {
+            loginStartupSyncPending = false
+            loginStartupSyncBlocked = false
+            loginStartupActiveSyncGeneration = null
+            loginStartupConflictGeneration = null
+        }
         if (intent.hasExtra(INTENT_SYNC_FROM_LOGIN)) {
             Timber.i("Sync requested from Login")
             this.syncOnResume = true
         }
+        reevaluatePostStartupDestination()
     }
 
     override fun opExecuted(

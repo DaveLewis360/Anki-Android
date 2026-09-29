@@ -3,6 +3,21 @@
 package com.ichi2.anki.ui.expressive
 
 import anki.scheduler.CardAnswer.Rating
+import com.ichi2.anki.libanki.CardId
+
+data class ExpressiveTimeboxInfo(
+    val seconds: Int,
+    val reviews: Int,
+)
+
+data class ExpressiveSchedulingMutationCommand(
+    val key: String,
+    val sessionGeneration: Long,
+    val cardId: CardId,
+    val renderRevision: Long,
+    val javascript: String,
+    val statesWithContextBase64: String,
+)
 
 /** How the next rendered card page should enter. */
 enum class CardTransition {
@@ -30,6 +45,10 @@ sealed interface StudyUiState {
     data class Answered(
         val card: AnsweredCard,
         val remaining: Int,
+    ) : StudyUiState
+
+    data class TimeboxReached(
+        val info: ExpressiveTimeboxInfo,
     ) : StudyUiState
 
     data object Finished : StudyUiState

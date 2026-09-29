@@ -5,6 +5,7 @@ package com.ichi2.anki.analytics
 
 import androidx.core.content.edit
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.ichi2.anki.BuildConfig
 import com.ichi2.anki.EmptyApplicationCategory
 import com.ichi2.anki.R
 import com.ichi2.anki.RobolectricTest
@@ -17,6 +18,8 @@ import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.instanceOf
 import org.hamcrest.CoreMatchers.sameInstance
 import org.hamcrest.MatcherAssert.assertThat
+import org.junit.Assume.assumeFalse
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
@@ -48,6 +51,7 @@ class AnkiDroidUsageAnalyticsTest : RobolectricTest() {
 
     @Test
     fun `a preference write from elsewhere rebuilds the client`() {
+        assumeTrue(BuildConfig.ENABLE_USAGE_ANALYTICS)
         withStubbedRebuild {
             getPreferences().edit(commit = true) { putBoolean(AnkiDroidUsageAnalytics.ANALYTICS_OPTIN_KEY, true) }
 
@@ -73,6 +77,7 @@ class AnkiDroidUsageAnalyticsTest : RobolectricTest() {
     @Test
     fun `rebuilding the client leaves the exception handler chain untouched`() =
         runTest {
+            assumeTrue(BuildConfig.ENABLE_USAGE_ANALYTICS)
             val base = Thread.getDefaultUncaughtExceptionHandler()
             try {
                 AnkiDroidUsageAnalytics.initialize(targetContext)
@@ -98,6 +103,23 @@ class AnkiDroidUsageAnalyticsTest : RobolectricTest() {
                 Thread.setDefaultUncaughtExceptionHandler(base)
             }
         }
+
+    @Test
+    fun `tracker-free build ignores opt-in and does not install an exception handler`() {
+        assumeFalse(BuildConfig.ENABLE_USAGE_ANALYTICS)
+        val base = Thread.getDefaultUncaughtExceptionHandler()
+        try {
+            getPreferences().edit(commit = true) { putBoolean(AnkiDroidUsageAnalytics.ANALYTICS_OPTIN_KEY, true) }
+
+            AnkiDroidUsageAnalytics.initialize(targetContext)
+
+            assertThat(AnkiDroidUsageAnalytics.isEnabled, equalTo(false))
+            assertThat(Thread.getDefaultUncaughtExceptionHandler(), sameInstance<Any>(base))
+        } finally {
+            getPreferences().edit(commit = true) { remove(AnkiDroidUsageAnalytics.ANALYTICS_OPTIN_KEY) }
+            Thread.setDefaultUncaughtExceptionHandler(base)
+        }
+    }
 
     private class PassThroughHandler(
         private val next: Thread.UncaughtExceptionHandler?,

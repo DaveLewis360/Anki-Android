@@ -18,6 +18,7 @@ package com.ichi2.anki
 
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
+import androidx.work.WorkManager
 import anki.collection.Progress
 import anki.sync.SyncAuth
 import anki.sync.SyncCollectionResponse
@@ -25,20 +26,23 @@ import anki.sync.syncAuth
 import com.google.android.material.snackbar.Snackbar
 import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.CollectionManager.withCol
+import com.ichi2.anki.account.SyncCredentialSnapshot
+import com.ichi2.anki.account.SyncCredentialStore
 import com.ichi2.anki.common.time.TimeManager
 import com.ichi2.anki.dialogs.SyncErrorDialog
 import com.ichi2.anki.observability.ChangeManager.notifySubscribersAllValuesChanged
 import com.ichi2.anki.settings.Prefs
-import com.ichi2.anki.settings.enums.ShouldFetchMedia
 import com.ichi2.anki.snackbar.showSnackbar
 import com.ichi2.anki.ui.internationalization.sentenceCase
+import com.ichi2.anki.worker.SyncMediaPolicy
 import com.ichi2.anki.worker.SyncMediaWorker
+import com.ichi2.anki.worker.UniqueWorkNames
 import com.ichi2.preferences.VersatileTextWithASwitchPreference
-import com.ichi2.utils.NetworkUtils
 import com.ichi2.utils.dismissSafely
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,67 +63,99 @@ enum class ConflictResolution {
     FULL_UPLOAD,
 }
 
-fun syncAuth(): SyncAuth? {
+fun currentSyncCredential(): SyncCredentialSnapshot? = SyncCredentialStore.read(AnkiDroidApp.instance.applicationContext)
+
+fun syncAuth(expectedGeneration: String? = null): SyncAuth? {
     // Grab custom sync certificate from preferences (default is the empty string) and set it in CollectionManager
     val currentSyncCertificate = Prefs.customSyncCertificate ?: ""
     CollectionManager.updateCustomCertificate(currentSyncCertificate)
 
-    val resolvedEndpoint = getEndpoint()
-    return Prefs.hkey?.let {
-        syncAuth {
-            this.hkey = it
-            if (resolvedEndpoint != null) {
-                this.endpoint = resolvedEndpoint
-            }
-            this.ioTimeoutSecs = Prefs.networkTimeoutSecs
+    val credential = currentSyncCredential() ?: return null
+    if (expectedGeneration != null && credential.generation != expectedGeneration) return null
+    val resolvedEndpoint = credential.endpoint ?: customSyncEndpoint()
+    return syncAuth {
+        hkey = credential.hkey
+        if (resolvedEndpoint != null) {
+            endpoint = resolvedEndpoint
         }
+        ioTimeoutSecs = Prefs.networkTimeoutSecs
     }
 }
 
-fun getEndpoint(): String? {
-    val currentEndpoint = Prefs.currentSyncUri?.ifEmpty { null }
-    val customEndpoint =
-        if (Prefs.isCustomSyncEnabled) {
-            Prefs.customSyncUri
-        } else {
-            null
-        }
-    return currentEndpoint ?: customEndpoint
-}
+/** Endpoint for password login, or the endpoint atomically owned by the current credential. */
+fun getEndpoint(): String? = currentSyncCredential()?.endpoint ?: customSyncEndpoint()
+
+private fun customSyncEndpoint(): String? =
+    if (Prefs.isCustomSyncEnabled) {
+        Prefs.customSyncUri
+    } else {
+        null
+    }
 
 /**
  * Whether the user has a sync account.
  * Returning true does not guarantee that the user actually synced recently,
  * or even that the ankiweb account is still valid.
  */
-fun isLoggedIn(): Boolean = !Prefs.hkey.isNullOrEmpty()
+fun isLoggedIn(): Boolean = currentSyncCredential() != null
 
 fun millisecondsSinceLastSync() = TimeManager.time.intTimeMS() - Prefs.lastSyncTime
+
+private enum class CollectionSyncOutcome {
+    COMPLETED,
+    AWAITING_CONFLICT_RESOLUTION,
+}
 
 fun DeckPicker.handleNewSync(
     conflict: ConflictResolution?,
     syncMedia: Boolean,
+    startupSyncGeneration: Long?,
 ) {
-    val auth = syncAuth() ?: return
     val deckPicker = this
+    val credentialGeneration = currentSyncCredential()?.generation
+    if (credentialGeneration == null) {
+        deckPicker.onForegroundSyncFailed(startupSyncGeneration)
+        return
+    }
+    val auth = syncAuth(expectedGeneration = credentialGeneration)
+    if (auth == null) {
+        deckPicker.onForegroundSyncFailed(startupSyncGeneration)
+        return
+    }
     launchCatchingTask {
         try {
             try {
-                when (conflict) {
-                    ConflictResolution.FULL_DOWNLOAD -> handleDownload(deckPicker, auth, deckPicker.mediaUsnOnConflict)
-                    ConflictResolution.FULL_UPLOAD -> handleUpload(deckPicker, auth, deckPicker.mediaUsnOnConflict)
-                    null -> {
-                        handleNormalSync(deckPicker, auth, syncMedia)
+                val outcome =
+                    try {
+                        when (conflict) {
+                            ConflictResolution.FULL_DOWNLOAD -> {
+                                handleDownload(deckPicker, auth, deckPicker.mediaUsnOnConflict)
+                                CollectionSyncOutcome.COMPLETED
+                            }
+                            ConflictResolution.FULL_UPLOAD -> {
+                                handleUpload(deckPicker, auth, deckPicker.mediaUsnOnConflict)
+                                CollectionSyncOutcome.COMPLETED
+                            }
+                            null -> handleNormalSync(deckPicker, auth, syncMedia, credentialGeneration)
+                        }
+                    } catch (exc: BackendSyncException.BackendSyncAuthFailedException) {
+                        // Clear only the credential generation used by this request.
+                        clearLogin(expectedGeneration = credentialGeneration)
+                        throw exc
                     }
+                if (outcome == CollectionSyncOutcome.AWAITING_CONFLICT_RESOLUTION) {
+                    deckPicker.onForegroundSyncAwaitingConflict(startupSyncGeneration)
                 }
-            } catch (exc: BackendSyncException.BackendSyncAuthFailedException) {
-                // auth failed; log out
-                updateLogin("", "")
+                withCol { notetypes.clearCache() }
+                notifySubscribersAllValuesChanged(deckPicker)
+                refreshState()
+                if (outcome == CollectionSyncOutcome.COMPLETED) {
+                    deckPicker.onForegroundSyncCompleted(startupSyncGeneration)
+                }
+            } catch (exc: Exception) {
+                deckPicker.onForegroundSyncFailed(startupSyncGeneration)
                 throw exc
             }
-            withCol { notetypes.clearCache() }
-            notifySubscribersAllValuesChanged(deckPicker)
-            refreshState()
         } finally {
             // Always update last sync time to prevent infinite retry loops
             // when sync fails (e.g., collection too large). See issue #19776
@@ -132,9 +168,49 @@ fun updateLogin(
     username: String,
     hkey: String,
 ) {
-    Prefs.username = username
-    Prefs.hkey = hkey
+    if (hkey.isBlank()) {
+        clearLogin()
+        return
+    }
+    SyncCredentialStore.replace(
+        context = AnkiDroidApp.instance.applicationContext,
+        hkey = hkey,
+        username = username,
+    )
 }
+
+fun clearLogin(expectedGeneration: String? = null): Boolean =
+    SyncCredentialStore.clear(
+        context = AnkiDroidApp.instance.applicationContext,
+        expectedGeneration = expectedGeneration,
+    )
+
+/** Cancels account-owned work before atomically forgetting exactly one credential generation. */
+suspend fun forgetSyncAccount(expectedGeneration: String): Boolean {
+    val context = AnkiDroidApp.instance.applicationContext
+    val workManager = WorkManager.getInstance(context)
+    withContext(Dispatchers.IO) {
+        workManager.cancelUniqueWork(UniqueWorkNames.SYNC).result.get()
+        workManager.cancelUniqueWork(UniqueWorkNames.SYNC_MEDIA).result.get()
+        runCatching { cancelSync(CollectionManager.getBackend()) }
+        runCatching { cancelMediaSync(CollectionManager.getBackend()) }
+    }
+    return withContext(NonCancellable) {
+        if (!clearLogin(expectedGeneration)) return@withContext false
+        withCol { media.forceResync() }
+        true
+    }
+}
+
+fun updateSyncEndpoint(
+    expectedGeneration: String,
+    endpoint: String,
+): Boolean =
+    SyncCredentialStore.updateEndpoint(
+        context = AnkiDroidApp.instance.applicationContext,
+        expectedGeneration = expectedGeneration,
+        endpoint = endpoint,
+    )
 
 fun cancelSync(backend: Backend) {
     backend.setWantsAbort()
@@ -145,7 +221,8 @@ private suspend fun handleNormalSync(
     deckPicker: DeckPicker,
     auth: SyncAuth,
     syncMedia: Boolean,
-) {
+    credentialGeneration: String,
+): CollectionSyncOutcome {
     Timber.i("Sync: Normal collection sync")
     var auth2 = auth
     val output =
@@ -165,7 +242,9 @@ private suspend fun handleNormalSync(
 
     if (output.hasNewEndpoint() && output.newEndpoint.isNotEmpty()) {
         Timber.i("sync endpoint updated")
-        Prefs.currentSyncUri = output.newEndpoint
+        if (!updateSyncEndpoint(credentialGeneration, output.newEndpoint)) {
+            throw CancellationException("Sync account changed while updating endpoint")
+        }
         auth2 =
             syncAuth {
                 this.hkey = auth.hkey
@@ -180,7 +259,7 @@ private suspend fun handleNormalSync(
         }
 
     Timber.i("sync result: ${output.required}")
-    when (output.required) {
+    return when (output.required) {
         // a successful sync returns this value
         SyncCollectionResponse.ChangesRequired.NO_CHANGES -> {
             // scheduler version may have changed
@@ -191,19 +270,23 @@ private suspend fun handleNormalSync(
             if (syncMedia) {
                 SyncMediaWorker.start(deckPicker, auth2)
             }
+            CollectionSyncOutcome.COMPLETED
         }
 
         SyncCollectionResponse.ChangesRequired.FULL_DOWNLOAD -> {
             handleDownload(deckPicker, auth2, mediaUsn)
+            CollectionSyncOutcome.COMPLETED
         }
 
         SyncCollectionResponse.ChangesRequired.FULL_UPLOAD -> {
             handleUpload(deckPicker, auth2, mediaUsn)
+            CollectionSyncOutcome.COMPLETED
         }
 
         SyncCollectionResponse.ChangesRequired.FULL_SYNC -> {
             deckPicker.mediaUsnOnConflict = mediaUsn
             deckPicker.showSyncErrorDialog(SyncErrorDialog.Type.DIALOG_SYNC_CONFLICT_RESOLUTION)
+            CollectionSyncOutcome.AWAITING_CONFLICT_RESOLUTION
         }
 
         SyncCollectionResponse.ChangesRequired.NORMAL_SYNC,
@@ -300,11 +383,7 @@ fun cancelMediaSync(backend: Backend) {
  * * Only if unmetered
  * * Never
  */
-fun shouldFetchMedia(): Boolean {
-    val shouldFetchMedia = Prefs.shouldFetchMedia
-    return shouldFetchMedia == ShouldFetchMedia.ALWAYS ||
-        (shouldFetchMedia == ShouldFetchMedia.ONLY_UNMETERED && !NetworkUtils.isActiveNetworkMetered())
-}
+fun shouldFetchMedia(): Boolean = SyncMediaPolicy.current() != SyncMediaPolicy.NEVER
 
 suspend fun monitorMediaSync(deckPicker: DeckPicker) {
     val backend = CollectionManager.getBackend()

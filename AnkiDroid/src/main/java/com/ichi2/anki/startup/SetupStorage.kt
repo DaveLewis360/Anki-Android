@@ -31,7 +31,7 @@ fun ensureCollectionPathSet(context: Context) {
     if (preferences.contains(CollectionHelper.PREF_COLLECTION_PATH)) return
     val defaultPath =
         try {
-            getDefaultAnkiDroidDirectory(context).absolutePath
+            getStandaloneAnkiDroidDirectory(context).absolutePath
         } catch (e: SystemStorageException) {
             CollectionHelper.systemStorageFailure = e
             throw e
@@ -40,6 +40,14 @@ fun ensureCollectionPathSet(context: Context) {
     Timber.d("default collection path: %s", defaultPath)
     preferences.edit { putString(CollectionHelper.PREF_COLLECTION_PATH, defaultPath) }
 }
+
+/** Package-owned target used by the separately installable Expressive application. */
+@CheckResult
+fun getStandaloneAnkiDroidDirectory(context: Context): File = File(getAppSpecificExternalAnkiDroidDirectory(context), "AnkiDroid")
+
+/** Conventional shared-storage source used by Classic AnkiDroid installations. */
+@CheckResult
+fun getLegacyAnkiDroidDirectory(): File = legacyAnkiDroidDirectory()
 
 /**
  * Get the absolute path to a directory that is suitable to be the default starting location

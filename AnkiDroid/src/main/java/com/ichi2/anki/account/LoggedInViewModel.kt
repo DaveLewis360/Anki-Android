@@ -19,8 +19,8 @@ package com.ichi2.anki.account
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ichi2.anki.CollectionManager.withCol
-import com.ichi2.anki.settings.Prefs
+import com.ichi2.anki.currentSyncCredential
+import com.ichi2.anki.forgetSyncAccount
 import kotlinx.coroutines.launch
 
 class LoggedInViewModel : ViewModel() {
@@ -28,14 +28,9 @@ class LoggedInViewModel : ViewModel() {
      * Handles the logic for logging out the user.
      */
     fun onLogout() {
+        val generation = currentSyncCredential()?.generation ?: return
         viewModelScope.launch {
-            Prefs.hkey = null
-            Prefs.username = null
-            Prefs.currentSyncUri = null
-
-            withCol {
-                media.forceResync()
-            }
+            forgetSyncAccount(generation)
         }
     }
 }

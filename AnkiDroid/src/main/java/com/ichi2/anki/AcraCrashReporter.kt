@@ -124,7 +124,7 @@ private object AcraCrashReporter : CrashReporter {
                     HttpSenderConfigurationBuilder()
                         .withHttpMethod(HttpSender.Method.PUT)
                         .withUri(BuildConfig.ACRA_URL)
-                        .withEnabled(true)
+                        .withEnabled(BuildConfig.ENABLE_REMOTE_CRASH_REPORTING)
                         .build(),
                     ToastConfigurationBuilder()
                         .withText(toastText)

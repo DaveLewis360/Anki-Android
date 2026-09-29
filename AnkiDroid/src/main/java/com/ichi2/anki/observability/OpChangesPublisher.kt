@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * @param deliver forwards a change to subscribers; invoked on [Dispatchers.Main].
  */
 internal class OpChangesPublisher(
-    private val deliver: (changes: OpChanges, handler: Any?) -> Unit,
+    private val deliver: suspend (changes: OpChanges, handler: Any?) -> Unit,
 ) {
     private data class ChangeEvent(
         val changes: OpChanges,

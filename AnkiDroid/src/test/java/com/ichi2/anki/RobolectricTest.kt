@@ -38,6 +38,9 @@ import com.ichi2.anki.CollectionManager.CollectionOpenFailure
 import com.ichi2.anki.RobolectricTest.CollectionStorageMode.IN_MEMORY_NO_FOLDERS
 import com.ichi2.anki.RobolectricTest.CollectionStorageMode.IN_MEMORY_WITH_MEDIA
 import com.ichi2.anki.RobolectricTest.CollectionStorageMode.ON_DISK
+import com.ichi2.anki.account.SyncCredentialSnapshot
+import com.ichi2.anki.account.SyncCredentialStorage
+import com.ichi2.anki.account.SyncCredentialStore
 import com.ichi2.anki.common.annotations.UseContextParameter
 import com.ichi2.anki.common.preferences.sharedPrefs
 import com.ichi2.anki.common.time.MockTime
@@ -53,6 +56,7 @@ import com.ichi2.anki.libanki.testutils.InMemoryCollectionManagerWithMediaFolder
 import com.ichi2.anki.libanki.testutils.TestCollectionManager
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.observability.undoableOp
+import com.ichi2.anki.settings.Prefs
 import com.ichi2.compat.customtabs.CustomTabActivityHelper
 import com.ichi2.testutils.AndroidTest
 import com.ichi2.testutils.ProductionCollectionManager
@@ -86,6 +90,7 @@ import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowLooper
 import org.robolectric.shadows.ShadowMediaPlayer
 import timber.log.Timber
+import java.util.UUID
 import kotlin.test.assertNotNull
 
 open class RobolectricTest :
@@ -137,6 +142,7 @@ open class RobolectricTest :
     @CallSuper
     open fun setUp() {
         println("""-- executing test "${testName.methodName}"""")
+        SyncCredentialStore.installStorageForTesting(RobolectricSyncCredentialStorage())
         TimeManager.resetWith(MockTime(2020, 7, 7, 7, 0, 0, 0, 10))
         throwOnShowError = true
 
@@ -225,6 +231,7 @@ open class RobolectricTest :
         WorkManagerTestInitHelper.closeWorkDatabase()
         Dispatchers.resetMain()
         runBlocking { CollectionManager.discardBackend() }
+        SyncCredentialStore.installStorageForTesting(null)
         println("""-- completed test "${testName.methodName}"""")
     }
 
@@ -463,3 +470,54 @@ open class RobolectricTest :
 
 private fun getLatestAlertDialog(): AlertDialog =
     assertNotNull(ShadowDialog.getLatestDialog() as? AlertDialog, "A dialog should be displayed")
+
+private class RobolectricSyncCredentialStorage : SyncCredentialStorage {
+    private var credential: SyncCredentialSnapshot? = null
+
+    override fun read(context: Context): SyncCredentialSnapshot? {
+        Prefs.hkey
+            ?.takeIf(String::isNotBlank)
+            ?.let { hkey ->
+                credential =
+                    SyncCredentialSnapshot(
+                        hkey = hkey,
+                        generation = UUID.nameUUIDFromBytes(hkey.toByteArray()).toString(),
+                        username = Prefs.username?.takeIf(String::isNotBlank),
+                        endpoint = Prefs.currentSyncUri?.takeIf(String::isNotBlank),
+                    )
+            }
+        return credential
+    }
+
+    override fun replace(
+        context: Context,
+        hkey: String,
+        username: String?,
+    ): SyncCredentialSnapshot =
+        SyncCredentialSnapshot(
+            hkey = hkey,
+            generation = UUID.randomUUID().toString(),
+            username = username,
+        ).also { credential = it }
+
+    override fun updateEndpoint(
+        context: Context,
+        expectedGeneration: String,
+        endpoint: String,
+    ): Boolean {
+        val current = read(context) ?: return false
+        if (current.generation != expectedGeneration) return false
+        credential = current.copy(endpoint = endpoint)
+        return true
+    }
+
+    override fun clear(
+        context: Context,
+        expectedGeneration: String?,
+    ): Boolean {
+        val current = read(context) ?: return false
+        if (expectedGeneration != null && current.generation != expectedGeneration) return false
+        credential = null
+        return true
+    }
+}

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,26 +35,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.os.ConfigurationCompat
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
 import com.ichi2.anki.ui.expressive.ExpressiveStats
 import com.ichi2.anki.ui.expressive.ExpressiveStatsGateway
 import com.ichi2.anki.ui.expressive.theme.PillShape
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
-private val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
+internal fun dailyReviewLabel(
+    date: LocalDate,
+    locale: Locale,
+): String = "${date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale)}\n${date.dayOfMonth}"
 
 /** Stats: real collection statistics with an expressive dashboard layout. */
 @Composable
-fun StatsScreen(statsGateway: ExpressiveStatsGateway = ExpressiveCollection) {
+fun StatsScreen(
+    refreshKey: Int = 0,
+    visible: Boolean = true,
+    statsGateway: ExpressiveStatsGateway = ExpressiveCollection,
+    onOpenDetailedStatistics: () -> Unit = {},
+) {
     var stats by remember { mutableStateOf<ExpressiveStats?>(null) }
     var failed by remember { mutableStateOf(false) }
     var animateIn by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshKey, visible) {
+        if (!visible) return@LaunchedEffect
+        failed = false
+        animateIn = false
         stats =
             try {
                 statsGateway.loadStats()
@@ -71,12 +88,19 @@ fun StatsScreen(statsGateway: ExpressiveStatsGateway = ExpressiveCollection) {
             .padding(top = 20.dp, bottom = 120.dp),
     ) {
         Text(
-            "Statistics",
+            "Statistics overview",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
+        Spacer(Modifier.height(10.dp))
+        Button(
+            onClick = onOpenDetailedStatistics,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        ) {
+            Text("Open full statistics")
+        }
         Spacer(Modifier.height(18.dp))
 
         val s = stats
@@ -214,7 +238,9 @@ private fun WeekChartCard(
     s: ExpressiveStats,
     animateIn: Boolean,
 ) {
-    val todayIndex = 6
+    val todayIndex = s.dailyReviews.lastIndex
+    val dailyMax = (s.dailyReviews.maxOfOrNull { it.count } ?: 0).coerceAtLeast(1)
+    val locale = ConfigurationCompat.getLocales(LocalConfiguration.current)[0] ?: Locale.getDefault()
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -223,13 +249,13 @@ private fun WeekChartCard(
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "This week",
+                    "Last 7 days",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    "${s.week.sum()} reviews",
+                    "${s.dailyReviews.sumOf { it.count }} reviews",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -240,17 +266,17 @@ private fun WeekChartCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
-                s.week.forEachIndexed { index, count ->
-                    val target = if (animateIn) count.toFloat() / s.weekMax else 0f
+                s.dailyReviews.forEachIndexed { index, day ->
+                    val target = if (animateIn) day.count.toFloat() / dailyMax else 0f
                     val fraction by animateFloatAsState(
                         targetValue = target.coerceIn(0.03f, 1f),
                         animationSpec = tween(durationMillis = 550, delayMillis = index * 60, easing = FastOutSlowInEasing),
                         label = "bar$index",
                     )
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (count > 0) {
+                        if (day.count > 0) {
                             Text(
-                                "$count",
+                                "${day.count}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -261,9 +287,7 @@ private fun WeekChartCard(
                                 .fillMaxWidth()
                                 .height((fraction * 88).dp)
                                 .background(
-                                    if (index ==
-                                        todayIndex
-                                    ) {
+                                    if (index == todayIndex) {
                                         MaterialTheme.colorScheme.primary
                                     } else {
                                         MaterialTheme.colorScheme.primaryContainer
@@ -279,9 +303,9 @@ private fun WeekChartCard(
                 Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                dayLabels.forEachIndexed { index, label ->
+                s.dailyReviews.forEachIndexed { index, day ->
                     Text(
-                        label,
+                        dailyReviewLabel(day.date, locale),
                         Modifier.weight(1f),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall,

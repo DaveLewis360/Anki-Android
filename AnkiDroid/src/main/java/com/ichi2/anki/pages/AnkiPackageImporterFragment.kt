@@ -98,6 +98,11 @@ class AnkiPackageImporterFragment : PageFragment() {
     companion object {
         private const val KEY_FILE_PATH = "filePath"
 
+        internal fun create(filePath: String): AnkiPackageImporterFragment =
+            AnkiPackageImporterFragment().apply {
+                arguments = Bundle().apply { putString(KEY_FILE_PATH, filePath) }
+            }
+
         fun getIntent(
             context: Context,
             filePath: String,

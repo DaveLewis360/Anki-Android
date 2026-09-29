@@ -95,6 +95,7 @@ class MeteredSyncPolicyTest : RobolectricTest() {
         result.clickCancel()
 
         assertThat("onConfirm not run after Cancel", result.onConfirmCalled, equalTo(false))
+        assertThat("onCancel ran after Cancel", result.onCancelCalled, equalTo(true))
     }
 
     @Test
@@ -131,15 +132,18 @@ class MeteredSyncPolicyTest : RobolectricTest() {
     private fun attemptMeteredSync(skipPrompt: Boolean = false): MeteredSyncAttemptResult {
         var dialogShown = false
         var confirmed = false
+        var cancelled = false
         with(startRegularActivity<EmptyAnkiActivity>()) {
             MeteredSyncPolicy.confirmThen(
                 skipPrompt = skipPrompt,
                 onDialogShown = { dialogShown = true },
+                onCancel = { cancelled = true },
             ) { confirmed = true }
         }
         return MeteredSyncAttemptResult(
             dialogShown = dialogShown,
             isConfirmed = { confirmed },
+            isCancelled = { cancelled },
             dialog = ShadowDialog.getLatestDialog() as? AlertDialog,
         )
     }
@@ -154,9 +158,11 @@ class MeteredSyncPolicyTest : RobolectricTest() {
     private class MeteredSyncAttemptResult(
         val dialogShown: Boolean,
         private val isConfirmed: () -> Boolean,
+        private val isCancelled: () -> Boolean,
         val dialog: AlertDialog?,
     ) {
         val onConfirmCalled: Boolean get() = isConfirmed()
+        val onCancelCalled: Boolean get() = isCancelled()
 
         fun clickContinue() = clickDialogButton(DialogInterface.BUTTON_POSITIVE)
 

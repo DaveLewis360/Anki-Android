@@ -23,7 +23,10 @@ import com.ichi2.anki.introduction.SetupCollectionFragment.CollectionSetupOption
 import com.ichi2.anki.introduction.SetupCollectionFragment.Companion.FRAGMENT_KEY
 import com.ichi2.anki.introduction.SetupCollectionFragment.Companion.RESULT_KEY
 import com.ichi2.anki.introduction.hasCollectionStoragePermissions
+import com.ichi2.anki.migration.ExistingProfileMigrationActivity
+import com.ichi2.anki.ui.expressive.ExpressiveHomeActivity
 import com.ichi2.anki.utils.ext.setFragmentResultListener
+import com.ichi2.anki.worker.markExpressiveStartupSyncPending
 import timber.log.Timber
 
 /**
@@ -42,6 +45,13 @@ class IntroductionActivity :
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (hasCollectionStoragePermissions()) {
                 openLoginDialog()
+            }
+        }
+
+    private val onMigrationResult =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
+            if (result.resultCode == RESULT_OK) {
+                startDeckPicker()
             }
         }
 
@@ -68,6 +78,11 @@ class IntroductionActivity :
                 BundleCompat.getParcelable(bundle, RESULT_KEY, CollectionSetupOption::class.java) ?: error("Missing introduction option!")
             when (option) {
                 CollectionSetupOption.DeckPickerWithNewCollection -> startDeckPicker()
+                CollectionSetupOption.CopyClassicCollection -> {
+                    val migration = ExistingProfileMigrationActivity.getIntent(this)
+                    DeckPicker.copyPostStartupDestination(intent, migration)
+                    onMigrationResult.launch(migration)
+                }
                 CollectionSetupOption.SyncFromExistingAccount -> openLoginDialog()
             }
         }
@@ -76,18 +91,35 @@ class IntroductionActivity :
     private fun openLoginDialog() {
         if (collectionPermissionScreenWasOpened()) return
         Timber.i("Opening login screen")
-        val intent = AccountActivity.getIntent(context = this, forResult = true)
-        onLoginResult.launch(intent)
+        val loginIntent =
+            when (DeckPicker.postStartupDestination(intent)) {
+                DeckPicker.PostStartupDestination.CLASSIC -> AccountActivity.getIntent(context = this, forResult = true)
+                DeckPicker.PostStartupDestination.EXPRESSIVE -> ExpressiveHomeActivity.getAccountResultIntent(this)
+            }
+        onLoginResult.launch(loginIntent)
     }
 
     private fun startDeckPicker(result: Int = RESULT_START_NEW) {
         Timber.i("Opening deck picker, login: %b", result == RESULT_SYNC_PROFILE)
         this.sharedPrefs().edit { putBoolean(INTRODUCTION_SLIDES_SHOWN, true) }
-        val deckPicker = Intent(this, DeckPicker::class.java)
-        deckPicker.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (result == RESULT_SYNC_PROFILE) {
-            deckPicker.putExtra(DeckPicker.INTENT_SYNC_FROM_LOGIN, true)
+        val destination = DeckPicker.postStartupDestination(intent)
+        if (result == RESULT_SYNC_PROFILE && destination == DeckPicker.PostStartupDestination.EXPRESSIVE) {
+            markExpressiveStartupSyncPending(this)
+            startActivity(
+                Intent(this, ExpressiveHomeActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            finish()
+            return
         }
+        val deckPicker =
+            DeckPicker.getIntent(
+                this,
+                autoSync = result == RESULT_SYNC_PROFILE,
+                postStartupDestination = destination,
+            )
+        deckPicker.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
 
         startActivity(deckPicker)
         finish()

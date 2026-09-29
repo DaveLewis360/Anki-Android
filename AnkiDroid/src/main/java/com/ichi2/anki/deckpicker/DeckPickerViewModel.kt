@@ -24,6 +24,7 @@ import com.ichi2.anki.PermissionSet
 import com.ichi2.anki.common.destinations.BrowserDestination
 import com.ichi2.anki.common.destinations.DeckOptionsDestination
 import com.ichi2.anki.configureRenderingMode
+import com.ichi2.anki.currentSyncCredential
 import com.ichi2.anki.launchCatchingIO
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.Consts
@@ -41,6 +42,7 @@ import com.ichi2.anki.performBackupInBackground
 import com.ichi2.anki.reviewreminders.ScheduleRemindersDestination
 import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.syncAuth
+import com.ichi2.anki.updateSyncEndpoint
 import com.ichi2.anki.utils.Destination
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -561,13 +563,14 @@ class DeckPickerViewModel :
      */
     suspend fun fetchSyncIconState(): SyncIconState {
         if (!Prefs.displaySyncStatus) return SyncIconState.Normal
-        val auth = syncAuth() ?: return SyncIconState.NotLoggedIn
+        val credentialGeneration = currentSyncCredential()?.generation ?: return SyncIconState.NotLoggedIn
+        val auth = syncAuth(expectedGeneration = credentialGeneration) ?: return SyncIconState.NotLoggedIn
         return try {
             // Use CollectionManager to ensure that this doesn't block 'deck count' tasks
             // throws if a .colpkg import or similar occurs just before this call
             val output = withContext(Dispatchers.IO) { CollectionManager.getBackend().syncStatus(auth) }
             if (output.hasNewEndpoint() && output.newEndpoint.isNotEmpty()) {
-                Prefs.currentSyncUri = output.newEndpoint
+                updateSyncEndpoint(credentialGeneration, output.newEndpoint)
             }
             when (output.required) {
                 SyncStatusResponse.Required.NO_CHANGES -> SyncIconState.Normal

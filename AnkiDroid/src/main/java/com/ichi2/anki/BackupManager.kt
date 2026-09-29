@@ -178,19 +178,39 @@ open class BackupManager {
         fun getBackupDate(fileName: String): Date? = getBackupTimeString(fileName)?.let { parseBackupTimeString(it) }
 
         /**
-         * @return Array of files with names which matches the backup name pattern,
-         * in order of creation.
+         * Resolves an opaque backup filename under the canonical backup root. Traversal, absolute
+         * paths, symlinks, directories, unreadable and empty files are rejected.
+         */
+        fun resolveBackupToken(
+            colFile: File,
+            token: String,
+        ): File? =
+            runCatching {
+                if (token != File(token).name || getBackupTimeString(token) == null) return null
+                val root = getBackupDirectory(colFile.parentFile!!).canonicalFile
+                val unresolved = File(root, token).absoluteFile
+                val candidate = unresolved.canonicalFile
+                candidate.takeIf {
+                    candidate == unresolved &&
+                        candidate.parentFile == root &&
+                        candidate.isFile &&
+                        candidate.canRead() &&
+                        candidate.length() > 0L
+                }
+            }.getOrNull()
+
+        /**
+         * Returns canonical, readable, non-empty regular backup files in chronological order.
+         * Package/database validity is checked by the isolated restore preflight before commit.
          */
         fun getBackups(colFile: File): Array<File> {
-            val files = getBackupDirectory(colFile.parentFile!!).listFiles() ?: arrayOf()
+            val root = getBackupDirectory(colFile.parentFile!!).canonicalFile
             val backups =
-                files
-                    .mapNotNull { file ->
-                        getBackupTimeString(file.name)?.let { time ->
-                            Pair(time, file)
-                        }
-                    }.sortedBy { it.first }
-                    .map { it.second }
+                root
+                    .listFiles()
+                    .orEmpty()
+                    .mapNotNull { file -> resolveBackupToken(colFile, file.name) }
+                    .sortedWith(compareBy<File>({ getBackupDate(it.name)?.time ?: Long.MIN_VALUE }, File::getName))
             return backups.toTypedArray()
         }
 

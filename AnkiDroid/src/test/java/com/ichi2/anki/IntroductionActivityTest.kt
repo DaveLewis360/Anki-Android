@@ -4,8 +4,11 @@
 package com.ichi2.anki
 
 import android.Manifest.permission.INTERNET
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ichi2.anki.SingleFragmentActivity.Companion.EXTRA_FRAGMENT_NAME
 import com.ichi2.anki.account.AccountActivity
@@ -13,7 +16,11 @@ import com.ichi2.anki.account.LoginFragment
 import com.ichi2.anki.introduction.SetupCollectionFragment
 import com.ichi2.anki.introduction.SetupCollectionFragment.CollectionSetupOption.DeckPickerWithNewCollection
 import com.ichi2.anki.introduction.SetupCollectionFragment.CollectionSetupOption.SyncFromExistingAccount
+import com.ichi2.anki.ui.expressive.ExpressiveDestination
+import com.ichi2.anki.ui.expressive.ExpressiveHomeActivity
+import com.ichi2.anki.ui.expressive.ExpressiveNavigationIntent
 import com.ichi2.anki.ui.windows.permissions.PermissionsActivity
+import com.ichi2.anki.worker.SyncAttemptStore
 import com.ichi2.testutils.withDeniedPermissions
 import kotlinx.coroutines.test.runTest
 import org.hamcrest.MatcherAssert.assertThat
@@ -22,7 +29,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import kotlin.reflect.jvm.jvmName
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /** Tests [IntroductionActivity] */
 @RunWith(AndroidJUnit4::class)
@@ -64,6 +73,34 @@ class IntroductionActivityTest : RobolectricTest() {
                 intent.getStringExtra(EXTRA_FRAGMENT_NAME),
                 equalTo(LoginFragment::class.jvmName),
             )
+        }
+
+    @Test
+    fun `Expressive sync opens native account and returns to gated startup sync`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val expressiveLaunch =
+                DeckPicker.getIntent(
+                    context,
+                    postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                )
+            val introductionIntent = Intent(context, IntroductionActivity::class.java)
+            DeckPicker.copyPostStartupDestination(expressiveLaunch, introductionIntent)
+            val activity = startRegularActivity<IntroductionActivity>(introductionIntent)
+            val shadow = shadowOf(activity)
+
+            activity.clickSync()
+
+            val accountIntent = assertNotNull(shadow.nextStartedActivity)
+            assertThat(accountIntent.component?.className, equalTo(ExpressiveHomeActivity::class.java.name))
+            assertEquals(ExpressiveDestination.Account, ExpressiveNavigationIntent.initialDestination(accountIntent))
+            assertTrue(ExpressiveHomeActivity.isAccountResultIntent(accountIntent))
+
+            shadow.receiveResult(accountIntent, Activity.RESULT_OK, Intent())
+            val expressiveHomeIntent = assertNotNull(shadow.nextStartedActivity)
+            assertThat(expressiveHomeIntent.component?.className, equalTo(ExpressiveHomeActivity::class.java.name))
+            assertTrue(SyncAttemptStore.isExpressiveStartupSyncPending(context))
+            SyncAttemptStore.clearExpressiveStartupSyncPending(context)
         }
 
     @Test

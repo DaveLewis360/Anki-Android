@@ -30,14 +30,20 @@ suspend fun performBackupInBackground(force: Boolean = false) {
 
 fun <Activity> Activity.importColpkg(colpkgPath: String) where Activity : AnkiActivity, Activity : ImportColpkgListener {
     launchCatchingTask {
-        withProgress(
-            extractProgress = {
-                if (progress.hasImporting()) {
-                    text = progress.importing
-                }
-            },
-        ) {
-            CollectionManager.importColpkg(colpkgPath)
+        try {
+            withProgress(
+                extractProgress = {
+                    if (progress.hasImporting()) {
+                        text = progress.importing
+                    }
+                },
+            ) {
+                CollectionManager.importColpkg(colpkgPath)
+            }
+        } catch (_: ExpressiveRestorePendingException) {
+            // Refused before anything changed: an earlier restore must finish first. Expected, so not reported.
+            showSimpleMessageDialog(getString(R.string.expressive_maintenance_error_previous_restore))
+            return@launchCatchingTask
         }
 
         onImportColpkg(colpkgPath)

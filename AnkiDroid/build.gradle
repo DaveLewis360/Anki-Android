@@ -61,6 +61,18 @@ def gitCommitHash = providers.exec {
 def buildTimeMillis = providers.gradleProperty("buildTime")
     .orElse(providers.provider { System.currentTimeMillis().toString() })
 
+// Usage analytics is a store-build-only capability. The GitHub/F-Droid `full`
+// flavor does not compile the transport or carry its credential in BuildConfig.
+Properties localBuildProperties = new Properties()
+def localPropsFile = project.rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localBuildProperties.load(localPropsFile.newDataInputStream())
+}
+def analyticsApiKey =
+        localBuildProperties.getProperty("ANALYTICS_API_KEY") ?:
+                System.getenv("ANALYTICS_API_KEY") ?:
+                "DUMMY_API_XXX"
+
 // Release artifacts must always use an explicitly supplied keystore. Keep this validation
 // execution-time only so debug builds, unit tests, lint, and Gradle sync need no signing secrets.
 def nonBlankEnvironmentValue = { String name ->
@@ -122,6 +134,8 @@ android {
         applicationId = "io.github.davelewis360.ankidroid.m3expressive"
         buildConfigField "Boolean", "CI", (System.getenv("CI") == "true").toString()
         buildConfigField "String", "ACRA_URL", '"https://ankidroid.org/acra/report"'
+        buildConfigField "Boolean", "ENABLE_REMOTE_CRASH_REPORTING", "true"
+        buildConfigField "Boolean", "ENABLE_USAGE_ANALYTICS", "true"
         buildConfigField "String", "BACKEND_VERSION", "\"${libs.versions.ankiBackend.get()}\""
         buildConfigField "Boolean", "ENABLE_LEAK_CANARY", "false"
         buildConfigField "String", "GIT_COMMIT_HASH", "\"${gitCommitHash.get()}\""
@@ -158,30 +172,6 @@ android {
         testApplicationId = "io.github.davelewis360.ankidroid.m3expressive.tests"
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = 'com.ichi2.testutils.NewCollectionPathTestRunner'
-
-        // GA4 Measurement Protocol api_secret. Sourced from `local.properties`
-        // (ANALYTICS_API_KEY) or the ANALYTICS_API_KEY env var; falls back to
-        // a dummy value so contributor builds still compile.
-        //
-        // The dummy key is rejected by GA's ingest, so analytics requests from
-        // unsigned/local builds go nowhere this means `setDevMode()` (100%
-        // sampling) has no observable effect on a build without the real key.
-        //
-        // Google documents the api_secret as private, and the Measurement Protocol
-        // as intended for trusted/server-side use:
-        // https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events#api_secret
-        // Shipping it in the APK means anyone can extract it and post junk events to
-        // the property, which would corrupt our reporting. We accept that: there is no
-        // server-side path for an offline-first app, the property holds no user data,
-        // and a polluted property can be rotated by issuing a new secret.
-        Properties properties = new Properties()
-        def localPropsFile = project.rootProject.file("local.properties")
-        if (localPropsFile.exists()) {
-            properties.load(localPropsFile.newDataInputStream())
-        }
-
-        def apiKey = properties.getProperty("ANALYTICS_API_KEY") ?: System.getenv("ANALYTICS_API_KEY") ?: "DUMMY_API_XXX"
-        buildConfigField "String", "ANALYTICS_API_KEY", "\"${apiKey}\""
     }
     signingConfigs {
         release {
@@ -267,14 +257,28 @@ android {
         create('play') {
             getIsDefault().set(true)
             dimension "appStore"
+            buildConfigField "String", "ANALYTICS_API_KEY", "\"${analyticsApiKey}\""
         }
         create('amazon') {
             dimension "appStore"
+            buildConfigField "String", "ANALYTICS_API_KEY", "\"${analyticsApiKey}\""
         }
-        // A 'full' build has no restrictions on storage/camera. Distributed on GitHub/F-Droid
+        // A 'full' build has no restrictions on storage/camera. It is the
+        // tracker-free FLOSS artifact distributed through GitHub and F-Droid.
         create('full') {
             dimension "appStore"
+            buildConfigField "Boolean", "ENABLE_USAGE_ANALYTICS", "false"
+            buildConfigField "Boolean", "ENABLE_REMOTE_CRASH_REPORTING", "false"
+            buildConfigField "String", "ANALYTICS_API_KEY", '""'
+            buildConfigField "String", "ACRA_URL", '""'
         }
+    }
+
+    // Share the GA transport only between store flavors. `full` supplies a
+    // source-compatible no-op transport and never resolves the GA dependency.
+    sourceSets {
+        play.kotlin.srcDir 'src/googleAnalytics/java'
+        amazon.kotlin.srcDir 'src/googleAnalytics/java'
     }
 
     /**
@@ -420,6 +424,78 @@ if (!forbiddenReleaseIdentityProperties.isEmpty()) {
     )
 }
 
+// Fast configuration contracts: these run without signing credentials or APK assembly.
+def canonicalApplicationId = "io.github.davelewis360.ankidroid.m3expressive"
+def canonicalTestApplicationId = "${canonicalApplicationId}.tests"
+def configuredApplicationId = android.defaultConfig.applicationId
+def configuredTestApplicationId = android.defaultConfig.testApplicationId
+def configuredMinSdk = android.defaultConfig.minSdk
+def configuredBuildTypeSuffixes = [
+        debug: android.buildTypes.getByName("debug").applicationIdSuffix,
+        benchmark: android.buildTypes.getByName("benchmark").applicationIdSuffix,
+        nonMinifiedRelease: android.buildTypes.getByName("nonMinifiedRelease").applicationIdSuffix,
+        release: android.buildTypes.getByName("release").applicationIdSuffix ?: "",
+]
+def verifyStandaloneIdentity = tasks.register("verifyStandaloneIdentity") {
+    group = "verification"
+    description = "Verifies the standalone package, test package, API floor, and internal variant suffixes."
+    inputs.property("applicationId", configuredApplicationId)
+    inputs.property("testApplicationId", configuredTestApplicationId)
+    inputs.property("minSdk", configuredMinSdk)
+    configuredBuildTypeSuffixes.each { name, suffix ->
+        inputs.property("${name}Suffix".toString(), suffix)
+    }
+    doLast {
+        if (configuredApplicationId != canonicalApplicationId) {
+            throw new GradleException(
+                    "Unexpected applicationId '${configuredApplicationId}'; expected '${canonicalApplicationId}'."
+            )
+        }
+        if (configuredTestApplicationId != canonicalTestApplicationId) {
+            throw new GradleException(
+                    "Unexpected testApplicationId '${configuredTestApplicationId}'; expected '${canonicalTestApplicationId}'."
+            )
+        }
+        if (configuredMinSdk != 24) {
+            throw new GradleException("The supported API floor must remain 24, found ${configuredMinSdk}.")
+        }
+        [debug: ".debug", benchmark: ".benchmark", nonMinifiedRelease: ".baselineprofile"].each { name, suffix ->
+            def actual = configuredBuildTypeSuffixes[name]
+            if (actual != suffix) {
+                throw new GradleException("Build type '${name}' must use applicationIdSuffix '${suffix}', found '${actual}'.")
+            }
+        }
+        if (!configuredBuildTypeSuffixes.release.isEmpty()) {
+            throw new GradleException("Production release must use the canonical applicationId without a suffix.")
+        }
+    }
+}
+
+def prohibitedTrackerCoordinates = ["io.github.criticalay:google-analytics-kt"] as Set
+def trackerAllowedConfigurations = ["playImplementation", "amazonImplementation"] as Set
+configurations.configureEach { configuration ->
+    configuration.dependencies.configureEach { dependency ->
+        def coordinate = "${dependency.group}:${dependency.name}"
+        if (prohibitedTrackerCoordinates.contains(coordinate) && !trackerAllowedConfigurations.contains(configuration.name)) {
+            throw new GradleException(
+                    "Tracking dependency '${coordinate}' is not allowed in configuration '${configuration.name}'."
+            )
+        }
+    }
+}
+def verifyFullFossDependencies = tasks.register("verifyFullFossDependencies") {
+    group = "verification"
+    description = "Verifies that tracking dependencies are declared only for explicitly allowed store flavors."
+    inputs.property("prohibitedTrackerCoordinates", prohibitedTrackerCoordinates.sort().join(","))
+    inputs.property("trackerAllowedConfigurations", trackerAllowedConfigurations.sort().join(","))
+}
+
+tasks.register("verifyStandaloneApp") {
+    group = "verification"
+    description = "Runs the standalone identity and tracker-free FLOSS configuration contracts."
+    dependsOn(verifyStandaloneIdentity, verifyFullFossDependencies)
+}
+
 // Only canonical production artifacts require production credentials. Keeping this exact-name
 // allowlist excludes compile, lint, unit-test, and plugin-generated nonMinifiedRelease tasks.
 def productionReleaseSigningTasks = [
@@ -549,7 +625,8 @@ dependencies {
     "baselineProfile" project(":baselineprofile")
     implementation project(":widgets")
 
-    implementation(libs.google.analytics.kt)
+    "playImplementation" libs.google.analytics.kt
+    "amazonImplementation" libs.google.analytics.kt
 
     implementation libs.androidx.activity
     // TODO: hoist the Compose enablement (kotlin.compose plugin, buildFeatures.compose,

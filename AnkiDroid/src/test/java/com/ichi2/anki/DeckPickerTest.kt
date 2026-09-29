@@ -41,6 +41,7 @@ import com.ichi2.anki.navigation.AnkiDroidNavigator
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.snackbar.showSnackbar
+import com.ichi2.anki.ui.expressive.ExpressiveHomeActivity
 import com.ichi2.anki.ui.internationalization.sentenceCase
 import com.ichi2.anki.ui.windows.permissions.PermissionsActivity
 import com.ichi2.anki.ui.windows.permissions.PermissionsActivity.Companion.EXTRA_PERMISSIONS_SET
@@ -280,12 +281,20 @@ class DeckPickerTest : RobolectricTest() {
             val d =
                 super.startActivityNormallyOpenCollectionWithIntent(
                     DeckPickerEx::class.java,
-                    Intent(),
+                    DeckPicker.getIntent(
+                        targetContext,
+                        postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                    ),
                 )
             assertThat(
                 "A specific dialog for a conflict should be shown",
                 d.databaseErrorDialog,
                 equalTo(DatabaseErrorDialogType.DIALOG_DB_LOCKED),
+            )
+            assertThat(
+                "A fatal startup response must not hand off to Expressive",
+                shadowOf(d).nextStartedActivity,
+                nullValue(),
             )
             assertThat(
                 "No exception reports should be thrown",
@@ -324,6 +333,8 @@ class DeckPickerTest : RobolectricTest() {
 
     @Test
     fun deckPickerOpensWithHelpMakeAnkiDroidBetterDialog() {
+        // The tracker-free full flavor has no usage analytics, so it never asks for the opt-in.
+        assumeTrue(BuildConfig.ENABLE_USAGE_ANALYTICS)
         // Refactor: It would be much better to use a spy - see if we can get this into Robolectric
         try {
             grantWritePermissions()
@@ -869,8 +880,15 @@ class DeckPickerTest : RobolectricTest() {
         }
 
     @Test
-    fun `On a new startup, the App Intro is displayed`() =
-        deckPicker(skipIntroduction = false) {
+    fun `On a new startup, the App Intro is displayed and preserves the post-start destination`() =
+        deckPicker(
+            skipIntroduction = false,
+            intent =
+                DeckPicker.getIntent(
+                    targetContext,
+                    postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                ),
+        ) {
             val nextIntent = Shadows.shadowOf(this).nextStartedActivity
 
             assertThat(
@@ -878,20 +896,210 @@ class DeckPickerTest : RobolectricTest() {
                 nextIntent.component?.className,
                 equalTo(IntroductionActivity::class.java.name),
             )
+            assertThat(
+                DeckPicker.postStartupDestination(nextIntent),
+                equalTo(DeckPicker.PostStartupDestination.EXPRESSIVE),
+            )
         }
 
     @Suppress("RedundantValueArgument")
     @Test
-    fun `On not a new startup, the App Intro is not displayed`() =
-        deckPicker(skipIntroduction = true) {
+    fun `An explicit classic destination does not hand off to Expressive`() {
+        BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+        deckPicker(
+            skipIntroduction = true,
+            intent =
+                DeckPicker.getIntent(
+                    targetContext,
+                    postStartupDestination = DeckPicker.PostStartupDestination.CLASSIC,
+                ),
+        ) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
             val nextIntent = Shadows.shadowOf(this).nextStartedActivity
 
             assertThat(
-                "No other activity should be started when not a new startup",
+                "No other activity should be started for the classic destination",
                 nextIntent,
                 equalTo(null),
             )
+            assertThat(viewModel.flowOfStartupResponse.value, nullValue())
         }
+    }
+
+    @Test
+    fun `successful startup hands off to Expressive exactly after the startup gate`() {
+        BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+        deckPicker(
+            intent =
+                DeckPicker.getIntent(
+                    targetContext,
+                    postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                ),
+        ) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            val nextIntent = assertNotNull(Shadows.shadowOf(this).nextStartedActivity)
+
+            assertThat(nextIntent.component?.className, equalTo(ExpressiveHomeActivity::class.java.name))
+            assertTrue(isFinishing)
+        }
+    }
+
+    @Test
+    fun `Expressive login startup waits when foreground sync has not completed successfully`() =
+        runTest {
+            BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+            val deckPicker =
+                startActivityNormallyOpenCollectionWithIntent(
+                    LoginSyncDeckPicker::class.java,
+                    DeckPicker.getIntent(
+                        targetContext,
+                        autoSync = true,
+                        postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                    ),
+                )
+
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+            assertThat(deckPicker.syncRequestCount, equalTo(1))
+            assertThat(Shadows.shadowOf(deckPicker).nextStartedActivity, nullValue())
+            assertThat(deckPicker.isFinishing, equalTo(false))
+        }
+
+    @Test
+    fun `Expressive login startup hands off exactly once after foreground sync success`() =
+        runTest {
+            BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+            val deckPicker =
+                startActivityNormallyOpenCollectionWithIntent(
+                    LoginSyncDeckPicker::class.java,
+                    DeckPicker.getIntent(
+                        targetContext,
+                        autoSync = true,
+                        postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                    ),
+                )
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            val shadowDeckPicker = Shadows.shadowOf(deckPicker)
+
+            deckPicker.completeForegroundSync()
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+            val nextIntent = assertNotNull(shadowDeckPicker.nextStartedActivity)
+            assertThat(nextIntent.component?.className, equalTo(ExpressiveHomeActivity::class.java.name))
+            assertTrue(deckPicker.isFinishing)
+
+            deckPicker.completeForegroundSync()
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            assertThat(shadowDeckPicker.nextStartedActivity, nullValue())
+        }
+
+    @Test
+    fun `older foreground sync cannot release a newer Expressive login startup gate`() =
+        runTest {
+            BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+            val deckPicker =
+                startActivityNormallyOpenCollectionWithIntent(
+                    LoginSyncDeckPicker::class.java,
+                    DeckPicker.getIntent(
+                        targetContext,
+                        autoSync = true,
+                        postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                    ),
+                )
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+            deckPicker.receiveNewIntent(
+                DeckPicker.getIntent(
+                    targetContext,
+                    autoSync = true,
+                    postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                ),
+            )
+            deckPicker.refreshState()
+            assertThat(deckPicker.syncRequestCount, equalTo(2))
+
+            deckPicker.completeForegroundSync(requestIndex = 0)
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            assertThat(Shadows.shadowOf(deckPicker).nextStartedActivity, nullValue())
+            assertThat(deckPicker.isFinishing, equalTo(false))
+
+            deckPicker.completeForegroundSync(requestIndex = 1)
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            val nextIntent = assertNotNull(Shadows.shadowOf(deckPicker).nextStartedActivity)
+            assertThat(nextIntent.component?.className, equalTo(ExpressiveHomeActivity::class.java.name))
+            assertTrue(deckPicker.isFinishing)
+        }
+
+    @Test
+    fun `failed foreground sync cannot release a later retry of the same startup gate`() =
+        runTest {
+            BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+            val deckPicker =
+                startActivityNormallyOpenCollectionWithIntent(
+                    LoginSyncDeckPicker::class.java,
+                    DeckPicker.getIntent(
+                        targetContext,
+                        autoSync = true,
+                        postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                    ),
+                )
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+            deckPicker.failForegroundSync(requestIndex = 0)
+            deckPicker.sync()
+            assertThat(deckPicker.syncRequestCount, equalTo(2))
+
+            deckPicker.completeForegroundSync(requestIndex = 0)
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            assertThat(Shadows.shadowOf(deckPicker).nextStartedActivity, nullValue())
+
+            deckPicker.completeForegroundSync(requestIndex = 1)
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            val nextIntent = assertNotNull(Shadows.shadowOf(deckPicker).nextStartedActivity)
+            assertThat(nextIntent.component?.className, equalTo(ExpressiveHomeActivity::class.java.name))
+            assertTrue(deckPicker.isFinishing)
+        }
+
+    @Test
+    fun `classic login startup remains in DeckPicker`() =
+        runTest {
+            BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+            val deckPicker =
+                startActivityNormallyOpenCollectionWithIntent(
+                    LoginSyncDeckPicker::class.java,
+                    DeckPicker.getIntent(
+                        targetContext,
+                        autoSync = true,
+                        postStartupDestination = DeckPicker.PostStartupDestination.CLASSIC,
+                    ),
+                )
+
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            deckPicker.completeForegroundSync()
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+            assertTrue(deckPicker.syncRequestCount >= 1)
+            assertThat(Shadows.shadowOf(deckPicker).nextStartedActivity, nullValue())
+            assertThat(deckPicker.isFinishing, equalTo(false))
+        }
+
+    @Test
+    fun `legacy scheduler blocks Expressive handoff until the upgrade is resolved`() {
+        BackupManagerTestUtilities.setupSpaceForBackup(targetContext)
+        col.config.set("schedVer", 1L)
+        deckPicker(
+            intent =
+                DeckPicker.getIntent(
+                    targetContext,
+                    postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                ),
+        ) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+            assertThat(Shadows.shadowOf(this).nextStartedActivity, nullValue())
+            assertThat(isFinishing, equalTo(false))
+        }
+    }
 
     @Test
     fun `startup response is cleared after handling so it does not re-run on resume`() =
@@ -916,7 +1124,13 @@ class DeckPickerTest : RobolectricTest() {
     fun `when INTERNET is denied, PermissionsActivity is shown`() =
         runTest {
             withDeniedPermissions(INTERNET) {
-                deckPicker {
+                deckPicker(
+                    intent =
+                        DeckPicker.getIntent(
+                            targetContext,
+                            postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE,
+                        ),
+                ) {
                     val intent = assertNotNull(shadowOf(this@deckPicker).nextStartedActivity)
 
                     assertThat(
@@ -963,6 +1177,29 @@ class DeckPickerTest : RobolectricTest() {
         fun isCollection(col: com.ichi2.anki.libanki.Collection): Boolean = col.decks.byName(deckName) != null
     }
 
+    internal class LoginSyncDeckPicker : DeckPicker() {
+        private val startupSyncGenerations = mutableListOf<Long?>()
+
+        val syncRequestCount: Int
+            get() = startupSyncGenerations.size
+
+        override fun sync(conflict: ConflictResolution?) {
+            startupSyncGenerations += loginStartupSyncGenerationFor(conflict)
+        }
+
+        fun completeForegroundSync(requestIndex: Int = startupSyncGenerations.lastIndex) {
+            onForegroundSyncCompleted(startupSyncGenerations[requestIndex])
+        }
+
+        fun failForegroundSync(requestIndex: Int = startupSyncGenerations.lastIndex) {
+            onForegroundSyncFailed(startupSyncGenerations[requestIndex])
+        }
+
+        fun receiveNewIntent(intent: Intent) {
+            onNewIntent(intent)
+        }
+    }
+
     internal class DeckPickerEx : DeckPicker() {
         var databaseErrorDialog: DatabaseErrorDialogType? = null
         var displayedAnalyticsOptIn = false
@@ -1004,13 +1241,14 @@ fun RobolectricTest.setIntroductionSlidesShown(shown: Boolean) {
 fun RobolectricTest.deckPicker(
     exposeTestData: Boolean = false,
     skipIntroduction: Boolean = true,
+    intent: Intent = Intent(),
     function: suspend DeckPicker.() -> Unit,
 ) = runTest {
     setIntroductionSlidesShown(skipIntroduction)
     val deckPicker =
         startActivityNormallyOpenCollectionWithIntent(
             if (exposeTestData) DeckPickerTest.DeckPickerEx::class.java else DeckPicker::class.java,
-            Intent(),
+            intent,
         )
     function(deckPicker)
 }

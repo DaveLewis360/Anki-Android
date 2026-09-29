@@ -25,7 +25,7 @@ import anki.sync.SyncAuth
 import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.R
 import com.ichi2.anki.common.annotations.NeedsTest
-import com.ichi2.anki.settings.Prefs
+import com.ichi2.anki.updateLogin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -111,14 +111,6 @@ class LoginViewModel : ViewModel() {
         withCol {
             syncLogin(username, password, endpoint)
         }
-
-    private fun updateLogin(
-        username: String,
-        hkey: String,
-    ) {
-        Prefs.username = username
-        Prefs.hkey = hkey
-    }
 }
 
 /**

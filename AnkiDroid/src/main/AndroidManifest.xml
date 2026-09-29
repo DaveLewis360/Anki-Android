@@ -285,13 +285,17 @@
 
             <!-- Tasker DO_SYNC intent -->
             <intent-filter>
-                <action android:name="com.ichi2.anki.DO_SYNC" />
+                <action android:name="${applicationId}.DO_SYNC" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
             android:name="com.ichi2.anki.ui.expressive.ExpressiveHomeActivity"
             android:exported="false" />
+        <activity
+            android:name="com.ichi2.anki.ui.expressive.ExpressiveImportPageActivity"
+            android:exported="false"
+            android:theme="@style/Theme_Dark.Launcher" />
         <activity
             android:name="com.ichi2.anki.DeckPicker"
             android:theme="@style/Theme_Dark.Launcher"
@@ -499,6 +503,10 @@
         <activity android:name=".IntroductionActivity"
             android:exported="false"
             android:configChanges="keyboardHidden|screenSize" />
+        <activity
+            android:name=".migration.ExistingProfileMigrationActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="false" />
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

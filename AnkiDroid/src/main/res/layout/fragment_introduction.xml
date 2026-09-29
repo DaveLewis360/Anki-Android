@@ -91,6 +91,18 @@
             android:backgroundTint="@color/material_blue_500"
             android:minWidth="200dp"
             android:text="@string/intro_get_started"
+            app:layout_constraintBottom_toTopOf="@+id/copy_classic_profile"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/copy_classic_profile"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:backgroundTint="@color/material_blue_500"
+            android:minWidth="200dp"
+            android:text="@string/intro_copy_classic_profile"
             app:layout_constraintBottom_toTopOf="@+id/sync_profile"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />

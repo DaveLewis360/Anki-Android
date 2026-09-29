@@ -28,6 +28,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class MyAccountTest : RobolectricTest() {
@@ -51,6 +54,25 @@ class MyAccountTest : RobolectricTest() {
                 assertEquals(loginButton?.isEnabled, true)
             }
         }
+    }
+
+    @Test
+    fun `account generation owns endpoint and stale clear cannot affect replacement`() {
+        updateLogin("first@example.com", "first-hkey")
+        val first = assertNotNull(currentSyncCredential())
+        assertTrue(updateSyncEndpoint(first.generation, "https://first.example/sync"))
+        assertEquals("https://first.example/sync", currentSyncCredential()?.endpoint)
+
+        updateLogin("second@example.com", "second-hkey")
+        val second = assertNotNull(currentSyncCredential())
+
+        assertEquals("second@example.com", second.username)
+        assertNull(second.endpoint)
+        assertFalse(clearLogin(expectedGeneration = first.generation))
+        assertEquals(second.generation, currentSyncCredential()?.generation)
+        assertEquals("second@example.com", Prefs.username)
+        assertNull(Prefs.currentSyncUri)
+        assertNull(Prefs.hkey)
     }
 
     @Test

@@ -49,11 +49,13 @@ object MeteredSyncPolicy {
      * @param skipPrompt `true` if the user has already accepted a metered sync earlier in this
      *   attempt (e.g. retry after conflict resolution); skips the warning.
      * @param onDialogShown invoked only if the warning dialog is displayed
+     * @param onCancel invoked when the warning is declined or dismissed
      */
     context(context: Context)
     fun confirmThen(
         skipPrompt: Boolean = false,
         onDialogShown: () -> Unit,
+        onCancel: () -> Unit = {},
         onConfirm: () -> Unit,
     ) {
         if (skipPrompt || !shouldBlock()) {
@@ -63,7 +65,8 @@ object MeteredSyncPolicy {
         AlertDialog.Builder(context).show {
             message(R.string.metered_sync_data_warning)
             positiveButton(R.string.dialog_continue) { onConfirm() }
-            negativeButton(R.string.dialog_cancel)
+            negativeButton(R.string.dialog_cancel) { onCancel() }
+            setOnCancelListener { onCancel() }
             checkBoxPrompt(R.string.button_do_not_show_again) { checked ->
                 setAlwaysAllow(checked)
             }

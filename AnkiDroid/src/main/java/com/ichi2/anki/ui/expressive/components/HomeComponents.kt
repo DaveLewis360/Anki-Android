@@ -154,6 +154,7 @@ fun DeckCard(
     selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    onToggleExpanded: () -> Unit = {},
     onLongClick: () -> Unit = {},
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -192,13 +193,14 @@ fun DeckCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier =
                         Modifier
-                            .size(24.dp)
+                            .size(32.dp)
                             .rotate(
                                 animateFloatAsState(
                                     targetValue = if (!deck.collapsed) 0f else -90f,
                                     label = "chevron",
                                 ).value,
-                            ),
+                            ).clickable(onClick = onToggleExpanded)
+                            .padding(4.dp),
                 )
                 Spacer(Modifier.width(10.dp))
             }

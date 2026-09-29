@@ -202,6 +202,7 @@ class FilteredDeckOptionsViewModel(
         Timber.i("Rescheduling status is changing to $isEnabled")
         if (currentState().shouldReschedule == isEnabled) return
         updateCurrentState { copy(shouldReschedule = isEnabled) }
+        hasUnsavedChanges.update { wasStateModified() }
     }
 
     fun onRescheduleDelayChange(
@@ -223,12 +224,14 @@ class FilteredDeckOptionsViewModel(
                 RescheduleDelay.Good -> copy(delayGood = amount)
             }
         }
+        hasUnsavedChanges.update { wasStateModified() }
     }
 
     fun onAllowEmptyChange(isEnabled: Boolean) {
         Timber.i("Allow empty status is changing to $isEnabled")
         if (currentState().allowEmpty == isEnabled) return
         updateCurrentState { copy(allowEmpty = isEnabled) }
+        hasUnsavedChanges.update { wasStateModified() }
     }
 
     /*
@@ -317,7 +320,12 @@ class FilteredDeckOptionsViewModel(
         return initial.name != current.name ||
             isFilter1Changed(initial, current) ||
             initial.isSecondFilterEnabled != current.isSecondFilterEnabled ||
-            isFilter2Changed(initial, current)
+            isFilter2Changed(initial, current) ||
+            initial.shouldReschedule != current.shouldReschedule ||
+            initial.delayAgain != current.delayAgain ||
+            initial.delayHard != current.delayHard ||
+            initial.delayGood != current.delayGood ||
+            initial.allowEmpty != current.allowEmpty
     }
 
     private fun isFilter1Changed(

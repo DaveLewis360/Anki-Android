@@ -105,6 +105,11 @@ class CsvImporter : PageFragment() {
     companion object {
         private const val KEY_FILE_PATH = "filePath"
 
+        internal fun create(filePath: String): CsvImporter =
+            CsvImporter().apply {
+                arguments = Bundle().apply { putString(KEY_FILE_PATH, filePath) }
+            }
+
         /**
          * @param filePath path of the csv file that will be imported, which should be accessible by AnkiDroid
          * @return an intent to open the [CsvImporter] page on [SingleFragmentActivity]

@@ -378,15 +378,41 @@ class FilteredDeckOptionsViewModelTest : RobolectricTest() {
         }
 
     @Test
-    fun `changed status is not updated for properties that are not observed`() =
+    fun `changed status is updated for rescheduling and allow empty properties`() =
         runTest {
             val testDid = createTestFilteredDeck()
             withViewModel(did = testDid) {
-                assertFalse(current.allowEmpty)
-                assertTrue(current.shouldReschedule)
+                val initialShouldReschedule = current.shouldReschedule
+                val initialAllowEmpty = current.allowEmpty
+                val initialDelayAgain = current.delayAgain
+                val initialDelayHard = current.delayHard
+                val initialDelayGood = current.delayGood
+
                 assertFalse(hasUnsavedChanges.value)
-                onAllowEmptyChange(true)
-                onRescheduleChange(false)
+
+                onRescheduleChange(!initialShouldReschedule)
+                assertTrue(hasUnsavedChanges.value)
+                onRescheduleChange(initialShouldReschedule)
+                assertFalse(hasUnsavedChanges.value)
+
+                onAllowEmptyChange(!initialAllowEmpty)
+                assertTrue(hasUnsavedChanges.value)
+                onAllowEmptyChange(initialAllowEmpty)
+                assertFalse(hasUnsavedChanges.value)
+
+                onRescheduleDelayChange(RescheduleDelay.Again, "$initialDelayAgain-changed")
+                assertTrue(hasUnsavedChanges.value)
+                onRescheduleDelayChange(RescheduleDelay.Again, initialDelayAgain)
+                assertFalse(hasUnsavedChanges.value)
+
+                onRescheduleDelayChange(RescheduleDelay.Hard, "$initialDelayHard-changed")
+                assertTrue(hasUnsavedChanges.value)
+                onRescheduleDelayChange(RescheduleDelay.Hard, initialDelayHard)
+                assertFalse(hasUnsavedChanges.value)
+
+                onRescheduleDelayChange(RescheduleDelay.Good, "$initialDelayGood-changed")
+                assertTrue(hasUnsavedChanges.value)
+                onRescheduleDelayChange(RescheduleDelay.Good, initialDelayGood)
                 assertFalse(hasUnsavedChanges.value)
             }
         }

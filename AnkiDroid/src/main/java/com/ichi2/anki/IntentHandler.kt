@@ -31,6 +31,8 @@ import com.ichi2.anki.exception.SystemStorageException
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
 import com.ichi2.anki.settings.Prefs
+import com.ichi2.anki.ui.expressive.ExpressiveExternalImportRequests
+import com.ichi2.anki.ui.expressive.ExpressiveHomeActivity
 import com.ichi2.anki.ui.windows.reviewer.ReviewerFragment
 import com.ichi2.anki.utils.MimeTypeUtils
 import com.ichi2.anki.worker.SyncWorker
@@ -62,13 +64,20 @@ class IntentHandler : AbstractIntentHandler() {
         super.onCreate(savedInstanceState)
         val intent = intent
         Timber.v(intent.toString())
-        val reloadIntent = Intent(this, DeckPicker::class.java)
-        reloadIntent.setDataAndType(getIntent().data, getIntent().type)
         val action = intent.action
+        val launchType = getLaunchType(intent)
+        val expressiveExternalImport =
+            launchType in setOf(LaunchType.FILE_IMPORT, LaunchType.TEXT_IMPORT) &&
+                shouldUseExpressiveImport(intent, Prefs.useExpressiveUi)
+        val reloadIntent =
+            if (expressiveExternalImport) {
+                getExpressiveImportBootstrapIntent(this, intent)
+            } else {
+                Intent(this, DeckPicker::class.java).apply { setDataAndType(intent.data, intent.type) }
+            }
         // #6157 - We want to block actions that need permissions we don't have, but not the default case
         // as this requires nothing
         val runIfStoragePermissions = { runnable: () -> Unit -> performActionIfStorageAccessible(reloadIntent, action) { runnable() } }
-        val launchType = getLaunchType(intent)
         // TODO block the UI with some kind of ProgressDialog instead of cancelling the sync work
         if (requiresCollectionAccess(launchType)) {
             // # 18899
@@ -79,12 +88,20 @@ class IntentHandler : AbstractIntentHandler() {
         when (launchType) {
             LaunchType.FILE_IMPORT ->
                 runIfStoragePermissions {
-                    handleFileImport(intent, reloadIntent, action)
+                    if (expressiveExternalImport) {
+                        startActivity(reloadIntent)
+                    } else {
+                        handleFileImport(intent, reloadIntent, action)
+                    }
                     finish()
                 }
             LaunchType.TEXT_IMPORT ->
                 runIfStoragePermissions {
-                    onSelectedCsvForImport(intent)
+                    if (expressiveExternalImport) {
+                        startActivity(reloadIntent)
+                    } else {
+                        onSelectedCsvForImport(intent)
+                    }
                     finish()
                 }
             LaunchType.IMAGE_IMPORT ->
@@ -102,11 +119,13 @@ class IntentHandler : AbstractIntentHandler() {
             LaunchType.OPEN_BROWSER -> runIfStoragePermissions { handleBrowserIntent(intent) }
             LaunchType.DEFAULT_START_APP_IF_NEW -> {
                 Timber.d("onCreate() performing default action")
-                if (Prefs.useExpressiveUi) {
-                    launchDeckPickerIfNoOtherTasks(Intent(this, com.ichi2.anki.ui.expressive.ExpressiveHomeActivity::class.java))
-                } else {
-                    launchDeckPickerIfNoOtherTasks(reloadIntent)
-                }
+                launchDeckPickerIfNoOtherTasks(
+                    getDefaultStartIntent(
+                        context = this,
+                        sourceIntent = intent,
+                        useExpressiveUi = Prefs.useExpressiveUi,
+                    ),
+                )
             }
             LaunchType.COPY_DEBUG_INFO -> {
                 copyDebugInfoToClipboard(intent)
@@ -356,8 +375,64 @@ class IntentHandler : AbstractIntentHandler() {
 
     companion object {
         const val EXTRA_DECK_ID = "EXTRA_DECK_ID"
-        private const val CLIPBOARD_INTENT = "com.ichi2.anki.COPY_DEBUG_INFO"
+
+        @VisibleForTesting
+        internal val SYNC_INTENT = "${BuildConfig.APPLICATION_ID}.DO_SYNC"
+        private val CLIPBOARD_INTENT = "${BuildConfig.APPLICATION_ID}.COPY_DEBUG_INFO"
         private const val EXTRA_CLIPBOARD_DATA = "clip_data"
+
+        @VisibleForTesting
+        internal fun getDefaultStartIntent(
+            context: Context,
+            sourceIntent: Intent,
+            useExpressiveUi: Boolean,
+        ): Intent {
+            val postStartupDestination =
+                if (useExpressiveUi) {
+                    DeckPicker.PostStartupDestination.EXPRESSIVE
+                } else {
+                    DeckPicker.PostStartupDestination.CLASSIC
+                }
+            return DeckPicker
+                .getIntent(
+                    context,
+                    postStartupDestination = postStartupDestination,
+                ).apply {
+                    setDataAndType(sourceIntent.data, sourceIntent.type)
+                }
+        }
+
+        @VisibleForTesting
+        internal fun shouldUseExpressiveImport(
+            sourceIntent: Intent,
+            useExpressiveUi: Boolean,
+        ): Boolean =
+            useExpressiveUi &&
+                (
+                    !DeckPicker.hasPostStartupDestination(sourceIntent) ||
+                        DeckPicker.postStartupDestination(sourceIntent) == DeckPicker.PostStartupDestination.EXPRESSIVE
+                )
+
+        @VisibleForTesting
+        internal fun getExpressiveImportBootstrapIntent(
+            context: Context,
+            sourceIntent: Intent,
+        ): Intent =
+            DeckPicker
+                .getIntent(context, postStartupDestination = DeckPicker.PostStartupDestination.EXPRESSIVE)
+                .apply {
+                    putExtra(ExpressiveHomeActivity.EXTRA_EXTERNAL_IMPORT, true)
+                    ExpressiveExternalImportRequests.identityFor(sourceIntent)?.let {
+                        putExtra(ExpressiveHomeActivity.EXTRA_EXTERNAL_REQUEST_ID, it)
+                    }
+                    action = sourceIntent.action
+                    setDataAndType(sourceIntent.data, sourceIntent.type)
+                    clipData = sourceIntent.clipData
+                    IntentCompat.getParcelableExtra(sourceIntent, Intent.EXTRA_STREAM, Uri::class.java)?.let {
+                        putExtra(Intent.EXTRA_STREAM, it)
+                    }
+                    addFlags(sourceIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
 
         private val textMimeTypes = MimeTypeUtils.CSV_TSV_MIME_TYPES
 
@@ -411,7 +486,7 @@ class IntentHandler : AbstractIntentHandler() {
                     textMimeTypes.contains(mimeType) -> LaunchType.TEXT_IMPORT
                     else -> LaunchType.FILE_IMPORT
                 }
-            } else if ("com.ichi2.anki.DO_SYNC" == action) {
+            } else if (SYNC_INTENT == action) {
                 LaunchType.SYNC
             } else if (intent.hasExtra(EXTRA_DECK_ID)) {
                 LaunchType.REVIEW
@@ -463,10 +538,9 @@ class IntentHandler : AbstractIntentHandler() {
                 // we may be called via any AnkiActivity but sync is a DeckPicker thing
                 val deckPicker = activity.requireDeckPickerOrShowError() ?: return
                 val res = deckPicker.resources
-                val hkey = Prefs.hkey
                 val millisecondsSinceLastSync = millisecondsSinceLastSync()
                 val limited = millisecondsSinceLastSync < INTENT_SYNC_MIN_INTERVAL
-                if (!limited && !hkey.isNullOrEmpty() && NetworkUtils.isOnline) {
+                if (!limited && isLoggedIn() && NetworkUtils.isOnline) {
                     deckPicker.sync()
                 } else {
                     val err = res.getString(R.string.sync_error)

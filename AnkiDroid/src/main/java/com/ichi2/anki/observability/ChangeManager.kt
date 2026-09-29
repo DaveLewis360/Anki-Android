@@ -25,10 +25,14 @@ import anki.collection.OpChangesWithCount
 import anki.collection.OpChangesWithId
 import anki.collection.opChanges
 import anki.import_export.ImportResponse
+import com.ichi2.anki.collection.CollectionChange
 import com.ichi2.anki.common.crashreporting.CrashReportService
 import com.ichi2.anki.common.utils.ext.ifNotZero
 import com.ichi2.anki.observability.ChangeManager.publish
 import com.ichi2.anki.observability.ChangeManager.toOpChanges
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import org.jetbrains.annotations.Contract
 import timber.log.Timber
 import java.lang.ref.WeakReference
@@ -55,6 +59,17 @@ object ChangeManager {
 
     // Maybe fixes #16217 - CopyOnWriteArrayList makes this object thread-safe
     private val subscribers = CopyOnWriteArrayList(mutableListOf<WeakReference<Subscriber>>())
+
+    private val mutableChanges = MutableSharedFlow<CollectionChange>(replay = 0)
+
+    /** Normalized invalidations for active collection consumers. Events are not durable state. */
+    val changes: SharedFlow<CollectionChange> = mutableChanges.asSharedFlow()
+
+    /** Serializes lossless flow delivery without blocking synchronous legacy callers. */
+    private val flowPublisher =
+        OpChangesPublisher { changes, handler ->
+            mutableChanges.emit(CollectionChange(changes = changes, initiator = handler))
+        }
 
     val subscriberCount get() = subscribers.size
 
@@ -126,10 +141,11 @@ object ChangeManager {
         subscribers.removeWeakReferences { it == null || it === subscriber }
     }
 
-    private fun notifySubscribers(
+    internal fun notifySubscribers(
         changes: OpChanges,
         handler: Any?,
     ) {
+        flowPublisher.publish(changes, handler)
         val expired = mutableListOf<WeakReference<Subscriber>>()
         for (subscriber in subscribers) {
             val ref =
@@ -159,6 +175,7 @@ object ChangeManager {
     @Synchronized
     fun resetForTesting() {
         publisher.reset()
+        flowPublisher.reset()
         subscribers.size.ifNotZero { size -> Timber.d("clearing %d subscribers", size) }
         subscribers.clear()
     }

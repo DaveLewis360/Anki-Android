@@ -5,15 +5,19 @@ package com.ichi2.anki
 import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ichi2.anki.IntentHandler.Companion.getLaunchType
 import com.ichi2.anki.IntentHandler.Companion.getReviewDeckIntent
 import com.ichi2.anki.IntentHandler.LaunchType
+import com.ichi2.anki.ui.expressive.ExpressiveTransferCoordinatorViewModel
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.equalTo
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class IntentHandlerTest {
@@ -34,7 +38,7 @@ class IntentHandlerTest {
 
     @Test
     fun syncIntentReturnsSync() {
-        val intent = Intent("com.ichi2.anki.DO_SYNC")
+        val intent = Intent(IntentHandler.SYNC_INTENT)
 
         val expected = getLaunchType(intent)
 
@@ -68,6 +72,29 @@ class IntentHandlerTest {
         val expected = getLaunchType(intent)
 
         assertThat(expected, equalTo(LaunchType.DEFAULT_START_APP_IF_NEW))
+    }
+
+    @Test
+    fun defaultStartAlwaysBootstrapsThroughDeckPicker() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val sourceIntent = Intent(Intent.ACTION_MAIN)
+        val cases =
+            listOf(
+                true to DeckPicker.PostStartupDestination.EXPRESSIVE,
+                false to DeckPicker.PostStartupDestination.CLASSIC,
+            )
+
+        for ((useExpressiveUi, expectedDestination) in cases) {
+            val actual =
+                IntentHandler.getDefaultStartIntent(
+                    context = context,
+                    sourceIntent = sourceIntent,
+                    useExpressiveUi = useExpressiveUi,
+                )
+
+            assertThat(actual.component?.className, equalTo(DeckPicker::class.java.name))
+            assertThat(DeckPicker.postStartupDestination(actual), equalTo(expectedDestination))
+        }
     }
 
     @Test
@@ -133,6 +160,58 @@ class IntentHandlerTest {
         // Should NOT be TEXT_IMPORT (which would trigger CSV import and fail)
         // Should be SHARED_TEXT (which launches note editor directly)
         assertThat(launchType, equalTo(LaunchType.SHARED_TEXT))
+    }
+
+    @Test
+    fun externalPackageAndTextImportsBootstrapExpressiveWithoutClassicShell() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val sources =
+            listOf(
+                Intent(Intent.ACTION_VIEW).apply { setDataAndType("content://provider/deck.apkg".toUri(), "application/apkg") },
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_STREAM, "content://provider/notes.csv".toUri())
+                },
+            )
+
+        val requestIds =
+            sources.map { source ->
+                assertTrue(IntentHandler.shouldUseExpressiveImport(source, useExpressiveUi = true))
+                val bootstrap = IntentHandler.getExpressiveImportBootstrapIntent(context, source)
+                val repeated = IntentHandler.getExpressiveImportBootstrapIntent(context, Intent(source))
+                assertThat(bootstrap.component?.className, equalTo(DeckPicker::class.java.name))
+                assertThat(DeckPicker.postStartupDestination(bootstrap), equalTo(DeckPicker.PostStartupDestination.EXPRESSIVE))
+                assertTrue(bootstrap.getBooleanExtra(com.ichi2.anki.ui.expressive.ExpressiveHomeActivity.EXTRA_EXTERNAL_IMPORT, false))
+                val requestId = bootstrap.getStringExtra(com.ichi2.anki.ui.expressive.ExpressiveHomeActivity.EXTRA_EXTERNAL_REQUEST_ID)
+                assertTrue(requestId != null && ExpressiveTransferCoordinatorViewModel.isExternalRequestId(requestId))
+                assertThat(
+                    repeated.getStringExtra(com.ichi2.anki.ui.expressive.ExpressiveHomeActivity.EXTRA_EXTERNAL_REQUEST_ID),
+                    equalTo(requestId),
+                )
+                val home =
+                    com.ichi2.anki.ui.expressive.ExpressiveHomeActivity
+                        .getExternalImportIntent(context, bootstrap)
+                assertThat(
+                    home.getStringExtra(com.ichi2.anki.ui.expressive.ExpressiveHomeActivity.EXTRA_EXTERNAL_REQUEST_ID),
+                    equalTo(requestId),
+                )
+                assertFalse(requestId.orEmpty().contains("provider"))
+                requestId
+            }
+
+        assertFalse(requestIds[0] == requestIds[1])
+    }
+
+    @Test
+    fun explicitClassicDestinationPreservesClassicExternalImportBehavior() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val source =
+            DeckPicker.getIntent(context, postStartupDestination = DeckPicker.PostStartupDestination.CLASSIC).apply {
+                action = Intent.ACTION_VIEW
+                setDataAndType("content://provider/deck.apkg".toUri(), "application/apkg")
+            }
+
+        assertFalse(IntentHandler.shouldUseExpressiveImport(source, useExpressiveUi = true))
     }
 
     private fun testIntentType(

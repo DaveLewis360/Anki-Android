@@ -11,15 +11,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,81 +33,95 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import anki.scheduler.CustomStudyRequest.Cram.CramKind
-import anki.scheduler.copy
+import com.ichi2.anki.R
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
+import com.ichi2.anki.ui.expressive.ExpressiveCustomStudyAction
+import com.ichi2.anki.ui.expressive.ExpressiveCustomStudyDefaults
+import com.ichi2.anki.ui.expressive.ExpressiveDeckDeletePreview
 import com.ichi2.anki.ui.expressive.ExpressiveDeckGateway
+import com.ichi2.anki.ui.expressive.ExpressiveMaintenanceMode
 import com.ichi2.anki.ui.expressive.UiDeck
 import com.ichi2.anki.ui.expressive.components.DeckCard
 import com.ichi2.anki.ui.expressive.components.ExpressiveFab
 import com.ichi2.anki.ui.expressive.components.GreetingHeader
 import com.ichi2.anki.ui.expressive.components.TodaySummaryCard
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/**
- * Home: greeting, today's summary and the REAL deck list from the collection.
- * Supports add card/deck via the FAB and per-deck rename/delete/options through
- * long-press.
- */
+/** Native deck list, hierarchy management, filtered-deck actions, and Custom Study. */
 @Composable
 fun HomeScreen(
     onDeckClick: (deckId: DeckId, deckName: String) -> Unit,
-    onAddCard: () -> Unit,
+    onAddCard: (deckId: DeckId?) -> Unit,
     onDeckOptions: (deckId: DeckId, isFiltered: Boolean) -> Unit,
+    onImport: () -> Unit = {},
+    onMaintenance: (ExpressiveMaintenanceMode) -> Unit = {},
+    onExportDeck: (deckId: DeckId, deckName: String) -> Unit = { _, _ -> },
     refreshKey: Int = 0,
     deckGateway: ExpressiveDeckGateway = ExpressiveCollection,
 ) {
     var decks by remember { mutableStateOf<List<UiDeck>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var selectedDeckId by remember { mutableStateOf<DeckId?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var operationError by remember { mutableStateOf<String?>(null) }
     var menuDeck by remember { mutableStateOf<UiDeck?>(null) }
     var renameDeck by remember { mutableStateOf<UiDeck?>(null) }
-    var deleteDeck by remember { mutableStateOf<UiDeck?>(null) }
+    var deleteCandidate by remember { mutableStateOf<DeleteCandidate?>(null) }
     var customStudyDeck by remember { mutableStateOf<UiDeck?>(null) }
+    var addDeckParent by remember { mutableStateOf<UiDeck?>(null) }
     var showAddDeck by remember { mutableStateOf(false) }
     var showFabMenu by remember { mutableStateOf(false) }
+    var workingDeckId by remember { mutableStateOf<DeckId?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     fun reload() {
         scope.launch {
             try {
                 decks = deckGateway.loadDecks()
-                error = null
-            } catch (e: Exception) {
-                error = e.message ?: "Failed to load decks"
+                selectedDeckId = deckGateway.selectedDeckId()
+                loadError = null
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                loadError = failure.message ?: "Failed to load decks"
             }
         }
     }
 
+    fun reportOperationFailure(failure: Exception) {
+        if (failure is CancellationException) throw failure
+        operationError = failure.message ?: "The deck operation could not be completed."
+    }
+
     LaunchedEffect(Unit) { reload() }
     LaunchedEffect(refreshKey) { if (refreshKey > 0) reload() }
+    LaunchedEffect(deckGateway) {
+        deckGateway.collectionChanges.collectLatest { change ->
+            val changes = change.changes
+            if (changes.deck || changes.card || changes.note || changes.studyQueues) reload()
+        }
+    }
 
     val loaded =
         decks ?: run {
-            LoadingPane(error)
+            LoadingPane(loadError)
             return
         }
-
-    val flat =
-        remember(loaded) {
-            buildList {
-                fun walk(deck: UiDeck) {
-                    add(deck)
-                    if (!deck.collapsed) {
-                        deck.children.forEach { walk(it) }
-                    }
-                }
-                loaded.forEach { walk(it) }
-            }
-        }
-    val totalNew = loaded.sumOf { it.newCount }
-    val totalLearn = loaded.sumOf { it.learnCount }
-    val totalDue = loaded.sumOf { it.dueCount }
+    val flat = remember(loaded) { loaded.flattenVisible() }
+    val totalNew = loaded.sumOf(UiDeck::newCount)
+    val totalLearn = loaded.sumOf(UiDeck::learnCount)
+    val totalDue = loaded.sumOf(UiDeck::dueCount)
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -115,17 +134,20 @@ fun HomeScreen(
                     Spacer(Modifier.height(20.dp))
                     if (loaded.isEmpty()) {
                         Text(
-                            "No decks yet — use the + button to create one",
+                            "No decks yet — create one or import an Anki package.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        TextButton(onClick = onImport, modifier = Modifier.height(48.dp)) {
+                            Text("Import")
+                        }
                     } else {
                         TodaySummaryCard(
                             newCount = totalNew,
                             learnCount = totalLearn,
                             dueCount = totalDue,
                             onStartStudying = {
-                                loaded
+                                flat
                                     .firstOrNull { it.dueCount + it.learnCount + it.newCount > 0 }
                                     ?.let { onDeckClick(it.did, it.name) }
                             },
@@ -144,115 +166,229 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            "${loaded.size} decks",
+                            "${loaded.countAll()} decks",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    TextButton(
+                        onClick = { onMaintenance(ExpressiveMaintenanceMode.BACKUPS) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text(stringResource(R.string.expressive_maintenance_home_entry)) }
                     Spacer(Modifier.height(8.dp))
                 }
             }
-            items(flat, key = { it.did }) { deck ->
+            items(flat, key = UiDeck::did) { deck ->
                 Box {
                     DeckCard(
                         deck = deck,
-                        selected = false,
-                        onClick = {
-                            if (deck.children.isNotEmpty()) {
+                        selected = selectedDeckId == deck.did,
+                        onClick = { onDeckClick(deck.did, deck.name) },
+                        onToggleExpanded = {
+                            if (workingDeckId == null) {
+                                workingDeckId = deck.did
                                 scope.launch {
-                                    deckGateway.setCollapsed(deck.did, !deck.collapsed)
-                                    decks = deckGateway.loadDecks()
+                                    try {
+                                        deckGateway.setCollapsed(deck.did, !deck.collapsed)
+                                        reload()
+                                    } catch (failure: Exception) {
+                                        reportOperationFailure(failure)
+                                    } finally {
+                                        workingDeckId = null
+                                    }
                                 }
-                            } else {
-                                onDeckClick(deck.did, deck.name)
                             }
                         },
-                        onLongClick = { menuDeck = deck },
+                        onLongClick = { if (workingDeckId == null) menuDeck = deck },
                     )
                     DeckContextMenu(
+                        deck = deck,
                         expanded = menuDeck?.did == deck.did,
                         onDismiss = { menuDeck = null },
+                        onCreateSubdeck = {
+                            addDeckParent = deck
+                            showAddDeck = true
+                            menuDeck = null
+                        },
                         onRename = {
                             renameDeck = deck
                             menuDeck = null
                         },
                         onDelete = {
-                            deleteDeck = deck
                             menuDeck = null
+                            workingDeckId = deck.did
+                            scope.launch {
+                                try {
+                                    deleteCandidate = DeleteCandidate(deck, deckGateway.deletePreview(deck.did))
+                                } catch (failure: Exception) {
+                                    reportOperationFailure(failure)
+                                } finally {
+                                    workingDeckId = null
+                                }
+                            }
                         },
                         onOptions = {
                             onDeckOptions(deck.did, deck.filtered)
+                            menuDeck = null
+                        },
+                        onExport = {
+                            onExportDeck(deck.did, deck.fullDeckName)
                             menuDeck = null
                         },
                         onCustomStudy = {
                             customStudyDeck = deck
                             menuDeck = null
                         },
+                        onRebuild = {
+                            menuDeck = null
+                            workingDeckId = deck.did
+                            scope.launch {
+                                try {
+                                    deckGateway.rebuildFilteredDeck(deck.did)
+                                    reload()
+                                } catch (failure: Exception) {
+                                    reportOperationFailure(failure)
+                                } finally {
+                                    workingDeckId = null
+                                }
+                            }
+                        },
+                        onEmpty = {
+                            menuDeck = null
+                            workingDeckId = deck.did
+                            scope.launch {
+                                try {
+                                    deckGateway.emptyFilteredDeck(deck.did)
+                                    reload()
+                                } catch (failure: Exception) {
+                                    reportOperationFailure(failure)
+                                } finally {
+                                    workingDeckId = null
+                                }
+                            }
+                        },
                     )
                 }
             }
         }
 
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 96.dp),
+        )
         ExpressiveFab(
             expanded = showFabMenu,
             onToggle = { showFabMenu = !showFabMenu },
             onAddCard = {
                 showFabMenu = false
-                onAddCard()
+                onAddCard(selectedDeckId)
             },
             onAddDeck = {
                 showFabMenu = false
+                addDeckParent = null
                 showAddDeck = true
             },
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(20.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
         )
     }
 
     renameDeck?.let { deck ->
         RenameDeckDialog(
             currentName = deck.fullDeckName,
-            onDismiss = { renameDeck = null },
+            enabled = workingDeckId == null,
+            onDismiss = { if (workingDeckId == null) renameDeck = null },
             onRename = { newName ->
+                workingDeckId = deck.did
                 scope.launch {
-                    deckGateway.renameDeck(deck.did, newName)
-                    renameDeck = null
-                    reload()
+                    try {
+                        deckGateway.renameDeck(deck.did, newName)
+                        renameDeck = null
+                        reload()
+                    } catch (failure: Exception) {
+                        reportOperationFailure(failure)
+                    } finally {
+                        workingDeckId = null
+                    }
                 }
             },
         )
     }
 
-    deleteDeck?.let { deck ->
+    deleteCandidate?.let { candidate ->
         AlertDialog(
-            onDismissRequest = { deleteDeck = null },
+            onDismissRequest = { if (workingDeckId == null) deleteCandidate = null },
             title = { Text("Delete deck") },
-            text = { Text("Delete “${deck.fullDeckName}” and all of its cards? This cannot be undone.") },
+            text = {
+                Text(
+                    if (candidate.preview.filtered) {
+                        "Delete filtered deck “${candidate.deck.fullDeckName}”? Its cards return to their original decks."
+                    } else {
+                        "Delete “${candidate.deck.fullDeckName}”, its subdecks, and ${candidate.preview.cardCount} cards?"
+                    },
+                )
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        deckGateway.deleteDeck(deck.did)
-                        deleteDeck = null
-                        reload()
-                    }
-                }) { Text("Delete") }
+                TextButton(
+                    enabled = workingDeckId == null,
+                    onClick = {
+                        workingDeckId = candidate.deck.did
+                        scope.launch {
+                            try {
+                                val deletion = deckGateway.deleteDeck(candidate.deck.did)
+                                deleteCandidate = null
+                                reload()
+                                val result =
+                                    snackbarHostState.showSnackbar(
+                                        message = "Deleted ${deletion.deletedCards} cards",
+                                        actionLabel = if (deletion.undoStep != null) "Undo" else null,
+                                        withDismissAction = true,
+                                    )
+                                if (result == SnackbarResult.ActionPerformed && deletion.undoStep != null) {
+                                    if (!deckGateway.undoDeckDeletion(deletion.undoStep)) {
+                                        operationError = "Another operation replaced the deck deletion in undo history."
+                                    }
+                                    reload()
+                                }
+                            } catch (failure: Exception) {
+                                reportOperationFailure(failure)
+                            } finally {
+                                workingDeckId = null
+                            }
+                        }
+                    },
+                ) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { deleteDeck = null }) { Text("Cancel") }
+                TextButton(enabled = workingDeckId == null, onClick = { deleteCandidate = null }) { Text("Cancel") }
             },
         )
     }
 
     if (showAddDeck) {
+        val initialName = ""
         AddDeckDialog(
-            onDismiss = { showAddDeck = false },
-            onCreate = { name ->
-                scope.launch {
-                    deckGateway.createDeck(name)
+            initialName = initialName,
+            enabled = workingDeckId == null,
+            title = addDeckParent?.let { "New subdeck in ${it.fullDeckName}" } ?: "New deck",
+            onDismiss = {
+                if (workingDeckId == null) {
                     showAddDeck = false
-                    reload()
+                    addDeckParent = null
+                }
+            },
+            onCreate = { name ->
+                workingDeckId = addDeckParent?.did ?: 0L
+                scope.launch {
+                    try {
+                        deckGateway.createDeck(name, parentDid = addDeckParent?.did)
+                        showAddDeck = false
+                        addDeckParent = null
+                        reload()
+                    } catch (failure: Exception) {
+                        reportOperationFailure(failure)
+                    } finally {
+                        workingDeckId = null
+                    }
                 }
             },
         )
@@ -260,146 +396,272 @@ fun HomeScreen(
 
     customStudyDeck?.let { deck ->
         CustomStudyDialog(
-            deck = deck,
+            deckId = deck.did,
+            deckName = deck.fullDeckName,
             deckGateway = deckGateway,
             onDismiss = { customStudyDeck = null },
-            onDone = { openSessionId ->
+            onDone = { sessionDeckId ->
                 customStudyDeck = null
                 scope.launch {
-                    val current = deckGateway.loadDecks()
-                    decks = current
-                    if (openSessionId != null) {
-                        fun findSession(list: List<UiDeck>): UiDeck? =
-                            list.firstOrNull { it.fullDeckName.endsWith("Custom Study Session") }
-                                ?: list.firstNotNullOfOrNull { findSession(it.children) }
-                        findSession(current)?.let { session -> onDeckClick(session.did, session.name) }
+                    try {
+                        val current = deckGateway.loadDecks()
+                        decks = current
+                        selectedDeckId = deckGateway.selectedDeckId()
+                        sessionDeckId?.let { did ->
+                            current.findDeck(did)?.let { session -> onDeckClick(session.did, session.name) }
+                                ?: run { operationError = "The Custom Study session was created but could not be opened." }
+                        }
+                    } catch (failure: Exception) {
+                        reportOperationFailure(failure)
                     }
                 }
             },
         )
     }
+
+    operationError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { operationError = null },
+            title = { Text("Deck operation failed") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { operationError = null }) { Text("OK") } },
+        )
+    }
 }
 
-private val customStudyModes =
+private data class DeleteCandidate(
+    val deck: UiDeck,
+    val preview: ExpressiveDeckDeletePreview,
+)
+
+private enum class CustomStudyMode(
+    val label: String,
+) {
+    EXTEND_NEW("Increase today's new card limit"),
+    EXTEND_REVIEW("Increase today's review limit"),
+    FORGOTTEN("Review forgotten cards"),
+    AHEAD("Review ahead"),
+    PREVIEW("Preview new cards"),
+    CRAM("Study by card state or tag"),
+}
+
+private val cramKinds =
     listOf(
-        "new" to "Increase new card limit",
-        "rev" to "Increase review limit",
-        "forgot" to "Review forgotten cards",
-        "ahead" to "Review ahead",
-        "tags" to "Tag-based cram",
+        CramKind.CRAM_KIND_NEW to "New cards only",
+        CramKind.CRAM_KIND_DUE to "Due cards only",
+        CramKind.CRAM_KIND_REVIEW to "All review cards in random order",
+        CramKind.CRAM_KIND_ALL to "All cards in random order",
     )
 
 @Composable
-private fun CustomStudyDialog(
-    deck: UiDeck,
+internal fun CustomStudyDialog(
+    deckId: DeckId,
+    deckName: String,
     deckGateway: ExpressiveDeckGateway,
     onDismiss: () -> Unit,
-    onDone: (openSessionId: DeckId?) -> Unit,
+    onDone: (sessionDeckId: DeckId?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf("new") }
-    var amount by remember { mutableStateOf("10") }
-    var tags by remember { mutableStateOf("") }
+    var defaults by remember { mutableStateOf<ExpressiveCustomStudyDefaults?>(null) }
+    var modeName by rememberSaveable(deckId) { mutableStateOf(CustomStudyMode.EXTEND_NEW.name) }
+    val mode = CustomStudyMode.valueOf(modeName)
+    var amount by rememberSaveable(deckId) { mutableStateOf("") }
+    var includeTags by rememberSaveable(deckId) { mutableStateOf("") }
+    var excludeTags by rememberSaveable(deckId) { mutableStateOf("") }
+    var cramKindName by rememberSaveable(deckId) { mutableStateOf(CramKind.CRAM_KIND_NEW.name) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(deckId) {
+        try {
+            defaults = deckGateway.customStudyDefaults(deckId)
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (failure: Exception) {
+            error = failure.message ?: "Custom Study defaults could not be loaded."
+        }
+    }
+    LaunchedEffect(mode, defaults) {
+        amount =
+            when (mode) {
+                CustomStudyMode.EXTEND_NEW -> defaults?.extendNew?.toString().orEmpty()
+                CustomStudyMode.EXTEND_REVIEW -> defaults?.extendReview?.toString().orEmpty()
+                CustomStudyMode.FORGOTTEN,
+                CustomStudyMode.AHEAD,
+                CustomStudyMode.PREVIEW,
+                -> "1"
+                CustomStudyMode.CRAM -> "100"
+            }
+    }
+
+    val parsedAmount = amount.toIntOrNull()
+    val canSubmit = defaults != null && parsedAmount != null && parsedAmount != 0 && !busy
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("Custom study") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    deck.fullDeckName,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                customStudyModes.forEach { (key, label) ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        androidx.compose.material3.RadioButton(
-                            selected = mode == key,
-                            onClick = { mode = key },
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.bodyMedium,
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                item {
+                    Text(
+                        deckName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (defaults == null && error == null) {
+                    item { CircularProgressIndicator() }
+                }
+                error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+                if (defaults != null) {
+                    items(CustomStudyMode.entries) { candidate ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = mode == candidate, onClick = { modeName = candidate.name })
+                            Text(candidate.label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    item {
+                        defaults?.let { loaded ->
+                            val availability =
+                                when (mode) {
+                                    CustomStudyMode.EXTEND_NEW ->
+                                        "Available: ${loaded.availableNew} (${loaded.availableNewInChildren} in subdecks)"
+                                    CustomStudyMode.EXTEND_REVIEW ->
+                                        "Available: ${loaded.availableReview} (${loaded.availableReviewInChildren} in subdecks)"
+                                    else -> null
+                                }
+                            availability?.let {
+                                Text(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = amount,
+                            onValueChange = { value ->
+                                amount =
+                                    value.filterIndexed { index, character ->
+                                        val signAtStart = character == '-' && index == 0
+                                        val signedMode =
+                                            mode == CustomStudyMode.EXTEND_NEW ||
+                                                mode == CustomStudyMode.EXTEND_REVIEW
+                                        character.isDigit() || (signAtStart && signedMode)
+                                    }
+                            },
+                            label = {
+                                Text(
+                                    if (
+                                        mode == CustomStudyMode.FORGOTTEN ||
+                                        mode == CustomStudyMode.AHEAD ||
+                                        mode == CustomStudyMode.PREVIEW
+                                    ) {
+                                        "Days"
+                                    } else {
+                                        "Cards"
+                                    },
+                                )
+                            },
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                }
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it.filter(Char::isDigit) },
-                    label = { Text("Amount") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (mode == "tags") {
-                    OutlinedTextField(
-                        value = tags,
-                        onValueChange = { tags = it },
-                        label = { Text("Tags (comma-separated)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (mode == CustomStudyMode.CRAM) {
+                        items(cramKinds) { (kind, label) ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = cramKindName == kind.name, onClick = { cramKindName = kind.name })
+                                Text(label, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        item {
+                            OutlinedTextField(
+                                value = includeTags,
+                                onValueChange = { includeTags = it },
+                                label = { Text("Include tags (comma-separated)") },
+                                supportingText = { Text("Known tags: ${defaults?.tags?.take(8)?.joinToString().orEmpty()}") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            OutlinedTextField(
+                                value = excludeTags,
+                                onValueChange = { excludeTags = it },
+                                label = { Text("Exclude tags (comma-separated)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                enabled = (amount.toIntOrNull() ?: -1) > 0,
+                enabled = canSubmit,
                 onClick = {
-                    val n = amount.toIntOrNull() ?: return@TextButton
+                    val count = parsedAmount ?: return@TextButton
+                    busy = true
+                    error = null
                     scope.launch {
-                        val request =
-                            anki.scheduler.customStudyRequest {
-                                deckId = deck.did
+                        try {
+                            val action =
                                 when (mode) {
-                                    "new" -> newLimitDelta = n
-                                    "rev" -> reviewLimitDelta = n
-                                    "forgot" -> forgotDays = n
-                                    "ahead" -> reviewAheadDays = n
-                                    else ->
-                                        cram =
-                                            cram.copy {
-                                                kind = CramKind.CRAM_KIND_ALL
-                                                cardLimit = n
-                                                tags
-                                                    .split(',')
-                                                    .map { it.trim() }
-                                                    .filter { it.isNotEmpty() }
-                                                    .forEach { tagsToInclude.add(it) }
-                                            }
+                                    CustomStudyMode.EXTEND_NEW -> ExpressiveCustomStudyAction.ExtendNew(count)
+                                    CustomStudyMode.EXTEND_REVIEW -> ExpressiveCustomStudyAction.ExtendReview(count)
+                                    CustomStudyMode.FORGOTTEN -> ExpressiveCustomStudyAction.Forgotten(count)
+                                    CustomStudyMode.AHEAD -> ExpressiveCustomStudyAction.ReviewAhead(count)
+                                    CustomStudyMode.PREVIEW -> ExpressiveCustomStudyAction.PreviewNew(count)
+                                    CustomStudyMode.CRAM ->
+                                        ExpressiveCustomStudyAction.Cram(
+                                            amount = count,
+                                            kind = CramKind.valueOf(cramKindName),
+                                            includeTags = includeTags.asTagList(),
+                                            excludeTags = excludeTags.asTagList(),
+                                        )
                                 }
-                            }
-                        deckGateway.customStudy(request)
-                        // Session modes create a filtered deck worth opening right away.
-                        onDone(if (mode == "forgot" || mode == "ahead" || mode == "tags") deck.did else null)
+                            val result = deckGateway.customStudy(deckId, action)
+                            onDone(result.sessionDeckId)
+                        } catch (failure: CancellationException) {
+                            throw failure
+                        } catch (failure: Exception) {
+                            error = failure.message ?: "Custom Study could not be created."
+                        } finally {
+                            busy = false
+                        }
                     }
                 },
-            ) { Text("Start") }
+            ) { Text(if (busy) "Working…" else "Start") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
 @Composable
 private fun DeckContextMenu(
+    deck: UiDeck,
     expanded: Boolean,
     onDismiss: () -> Unit,
+    onCreateSubdeck: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onOptions: () -> Unit,
+    onExport: () -> Unit,
     onCustomStudy: () -> Unit,
+    onRebuild: () -> Unit,
+    onEmpty: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text("Study options") }, onClick = onOptions)
-        DropdownMenuItem(text = { Text("Custom study") }, onClick = onCustomStudy)
+        DropdownMenuItem(text = { Text("Deck options") }, onClick = onOptions)
+        DropdownMenuItem(text = { Text("Export deck") }, onClick = onExport)
+        if (deck.filtered) {
+            DropdownMenuItem(text = { Text("Rebuild") }, onClick = onRebuild)
+            DropdownMenuItem(text = { Text("Empty") }, onClick = onEmpty)
+        } else {
+            DropdownMenuItem(text = { Text("Custom study") }, onClick = onCustomStudy)
+            DropdownMenuItem(text = { Text("Create subdeck") }, onClick = onCreateSubdeck)
+        }
         DropdownMenuItem(text = { Text("Rename") }, onClick = onRename)
         DropdownMenuItem(text = { Text("Delete") }, onClick = onDelete)
     }
@@ -408,10 +670,11 @@ private fun DeckContextMenu(
 @Composable
 private fun RenameDeckDialog(
     currentName: String,
+    enabled: Boolean,
     onDismiss: () -> Unit,
     onRename: (String) -> Unit,
 ) {
-    var name by remember { mutableStateOf(currentName) }
+    var name by rememberSaveable(currentName) { mutableStateOf(currentName) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Rename deck") },
@@ -419,47 +682,49 @@ private fun RenameDeckDialog(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
+                enabled = enabled,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank() && name != currentName, onClick = { onRename(name.trim()) }) {
-                Text("Rename")
-            }
+            TextButton(
+                enabled = enabled && name.isNotBlank() && name.trim() != currentName,
+                onClick = { onRename(name.trim()) },
+            ) { Text("Rename") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
+        dismissButton = { TextButton(enabled = enabled, onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
 @Composable
 private fun AddDeckDialog(
+    initialName: String,
+    title: String,
+    enabled: Boolean,
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by rememberSaveable(initialName) { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New deck") },
+        title = { Text(title) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                placeholder = { Text("Deck name (use :: for sub-decks)") },
+                enabled = enabled,
+                placeholder = { Text("Deck name (use :: for subdecks)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onCreate(name.trim()) }) {
+            TextButton(enabled = enabled && name.isNotBlank(), onClick = { onCreate(name.trim()) }) {
                 Text("Create")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
+        dismissButton = { TextButton(enabled = enabled, onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -484,3 +749,24 @@ private fun LoadingPane(error: String?) {
         }
     }
 }
+
+private fun List<UiDeck>.flattenVisible(): List<UiDeck> =
+    buildList {
+        fun walk(deck: UiDeck) {
+            add(deck)
+            if (!deck.collapsed) deck.children.forEach(::walk)
+        }
+        this@flattenVisible.forEach(::walk)
+    }
+
+private fun List<UiDeck>.countAll(): Int = sumOf { 1 + it.children.countAll() }
+
+private fun List<UiDeck>.findDeck(did: DeckId): UiDeck? =
+    firstOrNull { it.did == did } ?: firstNotNullOfOrNull { it.children.findDeck(did) }
+
+private fun String.asTagList(): List<String> =
+    split(',')
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .distinct()
+        .take(100)

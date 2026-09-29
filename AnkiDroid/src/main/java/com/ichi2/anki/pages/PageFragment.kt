@@ -159,13 +159,18 @@ abstract class PageFragment(
                 is UiPostRequestResponse.Ignored -> true
             }
 
-        return handleCollectionPostRequest(methodName, bytes) ?: run {
-            if (!resolvedUiMethod) {
-                Timber.w("Unknown TS method called.")
-                Timber.d("No handlers resolve TS method %s", methodName)
+        val response =
+            handleCollectionPostRequest(methodName, bytes) ?: run {
+                if (!resolvedUiMethod) {
+                    Timber.w("Unknown TS method called.")
+                    Timber.d("No handlers resolve TS method %s", methodName)
+                }
+                throw IllegalArgumentException("unhandled method: $methodName")
             }
-            throw IllegalArgumentException("unhandled method: $methodName")
+        if (methodName == "importDone") {
+            (activity as? ExpressiveImportPageHost)?.onBackendImportFinished()
         }
+        return response
     }
 
     @CallSuper
@@ -178,4 +183,11 @@ abstract class PageFragment(
     override fun onWebViewRecreated(webView: WebView) {
         setupWebView(null)
     }
+}
+
+/** Typed completion bridge used by the standalone Expressive import-page host. */
+interface ExpressiveImportPageHost {
+    fun onBackendImportFinished()
+
+    fun onBackendImportCancelled()
 }

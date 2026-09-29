@@ -344,6 +344,7 @@
     <string name="intro_ankidroid_tagline_two">Remember more</string>
     <string name="intro_short_ankidroid_explanation">Anki\'s card scheduler saves time by strengthening your weakest memories and preserving your strongest</string>
     <string name="intro_get_started" comment="Action to start AnkiDroid for the first time without syncing from AnkiWeb">Get started</string>
+    <string name="intro_copy_classic_profile">Copy Classic AnkiDroid data</string>
     <string name="intro_sync_from_ankiweb">Sync from AnkiWeb</string>
 
     <!-- IntentHandler -->
@@ -450,6 +451,171 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="set_due_date_day" comment="Used for setting due date">Day</string>
     <string name="set_due_date_date_range">Date range</string>
 
+    <!-- Material 3 Expressive account -->
+    <string name="expressive_account_title">AnkiWeb account</string>
+    <string name="expressive_account_sign_in_heading">Sign in to AnkiWeb</string>
+    <string name="expressive_account_sign_in_description">Use your AnkiWeb account to synchronize this collection. Your password is used only for this sign-in request and is never saved.</string>
+    <string name="expressive_account_sign_in_action">Sign in</string>
+    <string name="expressive_account_signed_in_heading">Account connected</string>
+    <string name="expressive_account_status_label">Signed in as</string>
+    <string name="expressive_account_signed_in_without_identity">Signed in</string>
+    <string name="expressive_account_show_password">Show</string>
+    <string name="expressive_account_hide_password">Hide</string>
+    <string name="expressive_account_forget_action">Log out on this device</string>
+    <string name="expressive_account_forget_title">Log out of AnkiWeb?</string>
+    <string name="expressive_account_forget_message">This removes the saved AnkiWeb credential from this device. Your AnkiWeb account and online data are not deleted.</string>
+    <string name="expressive_account_forget_confirm">Log out</string>
+    <string name="expressive_account_forget_explanation">Logging out removes the local authentication key and resets media sync state.</string>
+    <string name="expressive_account_error_credentials">The email address or password was not accepted.</string>
+    <string name="expressive_account_error_network">Couldn’t reach AnkiWeb. Check your connection and try again.</string>
+    <string name="expressive_account_error_service">Sign-in is unavailable right now. Try again later.</string>
+    <string name="expressive_account_error_cleanup">You are signed out, but local media sync cleanup could not finish. It will be retried by a future sync.</string>
+    <string name="expressive_account_not_signed_in">Not signed in</string>
+    <string name="expressive_account_signed_in_as">Signed in as %1$s</string>
+
     <string comment="Shown when retrying a running action" name="already_in_progress">Already in progress</string>
+
+    <!-- Material 3 Expressive import and export -->
+    <string name="expressive_transfer_group">Transfer</string>
+    <string name="expressive_import_title">Import</string>
+    <string name="expressive_export_title">Export</string>
+    <string name="expressive_import_subtitle">Add an Anki package or text file, or replace this collection</string>
+    <string name="expressive_export_subtitle">Create a private copy to save or share</string>
+    <string name="expressive_import_choose_file">Choose one APKG, COLPKG, CSV, TSV, or text file.</string>
+    <string name="expressive_import_collection_destructive">This replaces the entire collection on this device. A malformed or incorrect package can make local data unavailable. The collection is closed only while replacement is running.</string>
+    <string name="expressive_import_apkg_description">Add this package using Anki’s import defaults. Existing notes, scheduling, deck configuration, and media are handled by the backend import rules.</string>
+    <string name="expressive_import_text_description">Import this text file using Anki’s detected delimiter, fields, note type, deck, HTML, and duplicate-handling defaults.</string>
+    <string name="expressive_import_replace">Replace collection</string>
+    <string name="expressive_import_add">Import</string>
+    <string name="expressive_import_running">Importing. Collection-backed screens may be unavailable until this finishes.</string>
+    <string name="expressive_export_running">Creating export. Collection-backed screens may be unavailable for a collection package.</string>
+    <string name="expressive_transfer_cancel_wait_description">Cancel requests are cooperative. AnkiDroid waits until the backend reaches a safe cleanup point.</string>
+    <string name="expressive_export_ready">%1$s is ready.</string>
+    <string name="expressive_export_privacy_description">Saving lets your document provider choose whether to overwrite. Sharing grants the selected recipient read-only access to this cached artifact.</string>
+    <string name="expressive_export_save">Save to device</string>
+    <string name="expressive_export_share">Share read-only</string>
+    <string name="expressive_import_succeeded">Import complete. Collection screens have been refreshed.</string>
+    <string name="expressive_export_saved">Export saved.</string>
+    <string name="expressive_transfer_cancelled">Transfer cancelled. Temporary data was cleaned up when safe.</string>
+    <string name="expressive_export_scope_privacy">Only the stated scope is exported. Review the format options before creating the file.</string>
+    <string name="expressive_export_whole_collection">Scope: whole collection</string>
+    <string name="expressive_export_deck_scope">Scope: deck “%1$s” and its included cards</string>
+    <string name="expressive_export_selected_notes">Scope: exactly %1$d selected notes</string>
+    <string name="expressive_export_selected_cards">Scope: exactly %1$d selected cards</string>
+    <string name="expressive_export_format_colpkg">Anki collection package (.colpkg)</string>
+    <string name="expressive_export_format_apkg">Anki deck package (.apkg)</string>
+    <string name="expressive_export_format_notes">Notes in plain text (.txt)</string>
+    <string name="expressive_export_format_cards">Cards in plain text (.txt)</string>
+    <string name="expressive_export_include_media">Include media</string>
+    <string name="expressive_export_legacy">Support older Anki versions</string>
+    <string name="expressive_export_include_scheduling">Include scheduling information</string>
+    <string name="expressive_export_include_deck_configs">Include deck configurations</string>
+    <string name="expressive_export_include_html">Include HTML</string>
+    <string name="expressive_export_include_tags">Include tags</string>
+    <string name="expressive_export_include_deck">Include deck name</string>
+    <string name="expressive_export_include_notetype">Include note type name</string>
+    <string name="expressive_export_include_guid">Include unique identifier</string>
+    <string name="expressive_export_action">Create export</string>
+    <string name="expressive_transfer_unsupported_file">This file type is not supported. Choose an APKG, COLPKG, CSV, TSV, or text file.</string>
+    <string name="expressive_transfer_unsupported_database">Anki database (.anki2) files cannot be imported directly. Export a package from Anki first.</string>
+    <string name="expressive_transfer_provider_unavailable">The document provider did not make one readable file available.</string>
+    <string name="expressive_transfer_file_too_large">The selected file is too large to stage safely.</string>
+    <string name="expressive_transfer_copy_failed">The selected file could not be copied into protected app cache.</string>
+    <string name="expressive_transfer_import_failed">Import did not complete. No private provider details are shown or retained.</string>
+    <string name="expressive_transfer_export_failed">The export could not be created. Any partial artifact was removed.</string>
+    <string name="expressive_transfer_save_failed">The document provider could not save the export. The temporary artifact is still available.</string>
+    <string name="expressive_transfer_share_unavailable">No app can receive this export. Use Save to device instead.</string>
+    <string name="expressive_transfer_interrupted">The app process ended during this transfer. Mutating imports are never replayed automatically.</string>
+
+    <!-- Expressive backup, restore, and collection maintenance -->
+    <string name="expressive_maintenance_group">Collection</string>
+    <string name="expressive_maintenance_backups_title">Backups</string>
+    <string name="expressive_maintenance_backups_subtitle">Create, keep, and restore collection backups</string>
+    <string name="expressive_maintenance_database_subtitle">Find and repair problems in the collection</string>
+    <string name="expressive_maintenance_empty_cards_subtitle">Remove cards whose templates produce nothing</string>
+    <string name="expressive_maintenance_media_subtitle">Find missing and unused media files</string>
+    <string name="expressive_maintenance_home_entry">Backups and maintenance</string>
+    <string name="expressive_maintenance_restore_from_file">Restore from a file</string>
+    <string name="expressive_maintenance_backup_size">Size: %s</string>
+    <string name="expressive_maintenance_restore_backup_action">Restore backup from %s</string>
+    <string name="expressive_maintenance_delete_backup_action">Delete backup from %s</string>
+    <string name="expressive_maintenance_delete_backup_title">Delete this backup?</string>
+    <string name="expressive_maintenance_delete_backup_message">Only the backup from %s is deleted. Your collection is not changed.</string>
+    <string name="expressive_maintenance_retention_save">Save backup settings</string>
+    <string name="expressive_maintenance_retention_invalid">Enter a whole number between %1$d and %2$d.</string>
+    <string name="expressive_maintenance_restore_safety">Before anything is replaced, a new backup of your current collection is created. If the restored collection cannot be opened, your current collection is put back.</string>
+    <string name="expressive_maintenance_database_description">Checks the collection for problems, repairs what it can, and then rebuilds and optimizes the database. This cannot be stopped once it starts.</string>
+    <string name="expressive_maintenance_empty_cards_description">Finds cards whose front side is empty because of their note\'s content or card template.</string>
+    <string name="expressive_maintenance_find_empty_cards">Find empty cards</string>
+    <string name="expressive_maintenance_delete_empty_cards">Delete empty cards</string>
+    <string name="expressive_maintenance_media_description">Compares the media folder with your notes to find missing and unused files.</string>
+    <string name="expressive_maintenance_rebuild_media">Rebuild media database</string>
+    <string name="expressive_maintenance_rebuild_media_message">The media database is recreated on the next media sync. Media files and notes are not deleted, but the next media sync may take longer.</string>
+    <string name="expressive_maintenance_rebuild_media_done">The media database will be rebuilt on the next media sync.</string>
+    <string name="expressive_maintenance_loading">Loading…</string>
+    <string name="expressive_maintenance_creating_backup">Creating backup…</string>
+    <string name="expressive_maintenance_deleting_backup">Deleting backup…</string>
+    <string name="expressive_maintenance_saving_settings">Saving…</string>
+    <string name="expressive_maintenance_validating_restore">Checking the backup before anything is changed…</string>
+    <string name="expressive_maintenance_restoring">Creating a safety backup and restoring…</string>
+    <string name="expressive_maintenance_checking_database">Checking the database…</string>
+    <string name="expressive_maintenance_finding_empty_cards">Searching for empty cards…</string>
+    <string name="expressive_maintenance_working">Working…</string>
+    <string name="expressive_maintenance_keep_open">This step cannot be stopped. Keep the app open until it has finished.</string>
+    <string name="expressive_maintenance_progress_counter">%1$d of %2$d</string>
+    <string name="expressive_maintenance_backup_created">Backup created.</string>
+    <string name="expressive_maintenance_backup_unchanged">No changes since the latest backup.</string>
+    <string name="expressive_maintenance_backup_deleted">Backup deleted.</string>
+    <string name="expressive_maintenance_settings_saved">Backup settings saved.</string>
+    <string name="expressive_maintenance_restored">Your collection was restored.</string>
+    <string name="expressive_maintenance_restore_media_pending">Some restored media files could not be added to your media folder yet. They are kept, and adding them is retried the next time the app starts.</string>
+    <string name="expressive_maintenance_quarantine_title">Restored media kept aside</string>
+    <string name="expressive_maintenance_quarantine_merge">Add to media folder</string>
+    <string name="expressive_maintenance_quarantine_delete">Delete kept files</string>
+    <string name="expressive_maintenance_quarantine_delete_message">The kept media files are deleted permanently. Your collection and your media folder are not changed.</string>
+    <string name="expressive_maintenance_quarantine_merged">The kept media files were added to your media folder.</string>
+    <string name="expressive_maintenance_quarantine_deleted">The kept media files were deleted.</string>
+    <string name="expressive_maintenance_error_backup">The backup could not be created. Your collection was not changed.</string>
+    <string name="expressive_maintenance_error_restore">The backup could not be restored. Your current collection was kept.</string>
+    <string name="expressive_maintenance_error_recovery_pending">Restoring failed and your previous collection could not be reopened yet. Close and reopen the app: the previous collection is put back before it opens.</string>
+    <string name="expressive_maintenance_error_provider">The selected file could not be read.</string>
+    <string name="expressive_maintenance_error_too_large">The selected file is too large to restore on this device.</string>
+    <string name="expressive_maintenance_error_sync_active">Wait until sync has finished, then try again.</string>
+    <string name="expressive_maintenance_error_media_sync_active">Wait until media sync has finished, then try again.</string>
+    <string name="expressive_maintenance_error_previous_restore">An earlier restore has not finished yet. Close and reopen the app, then try again. If this keeps happening, free up some storage space.</string>
+    <string name="expressive_maintenance_error_interrupted">The app was closed before this finished. Nothing was retried automatically; check the result before trying again.</string>
+    <string name="expressive_maintenance_error_failed">The operation could not be completed.</string>
+    <plurals name="expressive_maintenance_empty_cards_found">
+        <item quantity="one">%d empty card found.</item>
+        <item quantity="other">%d empty cards found.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_notes_at_risk">
+        <item quantity="one">Deleting all of them would also delete %d note.</item>
+        <item quantity="other">Deleting all of them would also delete %d notes.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_media_trashed">
+        <item quantity="one">%d unused file was moved to the trash.</item>
+        <item quantity="other">%d unused files were moved to the trash.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_notes_tagged">
+        <item quantity="one">%d note was tagged.</item>
+        <item quantity="other">%d notes were tagged.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_database_problems">
+        <item quantity="one">The database check finished and reported %d problem.</item>
+        <item quantity="other">The database check finished and reported %d problems.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_restore_media_quarantined">
+        <item quantity="one">%d restored media file could not be added to your media folder. It is kept aside: you can add it again or delete it in Backups.</item>
+        <item quantity="other">%d restored media files could not be added to your media folder. They are kept aside: you can add them again or delete them in Backups.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_quarantine_notice">
+        <item quantity="one">%d media file from a restored backup could not be added to your media folder, for example because storage was full.</item>
+        <item quantity="other">%d media files from a restored backup could not be added to your media folder, for example because storage was full.</item>
+    </plurals>
+    <plurals name="expressive_maintenance_quarantine_remaining">
+        <item quantity="one">%d kept file still could not be added. Free up some storage space and try again.</item>
+        <item quantity="other">%d kept files still could not be added. Free up some storage space and try again.</item>
+    </plurals>
 </resources>
 

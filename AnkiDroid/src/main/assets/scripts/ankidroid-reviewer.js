@@ -7,7 +7,7 @@ globalThis.ankidroid.userAction = function (number) {
         if (userJs != null) {
             userJs();
         } else {
-            window.location.href = `missing-user-action:${number}`;
+            window.location.href = `missing-user-action:${number}${globalThis.__ankidroidInternalNavigationSuffix || ""}`;
         }
     } catch (e) {
         alert(e);

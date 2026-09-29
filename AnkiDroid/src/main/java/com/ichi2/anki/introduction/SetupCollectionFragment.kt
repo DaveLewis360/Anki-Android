@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResult
 import com.ichi2.anki.R
 import com.ichi2.anki.databinding.FragmentIntroductionBinding
+import com.ichi2.anki.introduction.SetupCollectionFragment.CollectionSetupOption.CopyClassicCollection
 import com.ichi2.anki.introduction.SetupCollectionFragment.CollectionSetupOption.DeckPickerWithNewCollection
 import com.ichi2.anki.introduction.SetupCollectionFragment.CollectionSetupOption.SyncFromExistingAccount
 import com.ichi2.anki.utils.bottomCornerClearance
@@ -42,6 +43,7 @@ class SetupCollectionFragment : Fragment(R.layout.fragment_introduction) {
         setupEdgeToEdge(view)
 
         binding.getStarted.setOnClickListener { setResult(DeckPickerWithNewCollection) }
+        binding.copyClassicProfile.setOnClickListener { setResult(CopyClassicCollection) }
         binding.syncProfile.setOnClickListener { setResult(SyncFromExistingAccount) }
     }
 
@@ -71,6 +73,9 @@ class SetupCollectionFragment : Fragment(R.layout.fragment_introduction) {
     enum class CollectionSetupOption : Parcelable {
         /** Continues to the DeckPicker with a new collection */
         DeckPickerWithNewCollection,
+
+        /** Copies a directly readable, closed Classic AnkiDroid profile into this app. */
+        CopyClassicCollection,
 
         /** Syncs an existing profile from AnkiWeb */
         SyncFromExistingAccount,
