@@ -43,7 +43,7 @@
   - a Home összesítő kártyája 2× betűméretnél kilóg (`app_components_font_2x` screenshot), ez az F3 Home-DoD része;
   - a dinamikus szín csak eszközön ellenőrizhető, mert Robolectricben nincs háttérkép-szín;
   - a teljes unit-tesztcsomag futtatása a B-út spike-jával együtt; az `ExistingProfileMigrationActivity`-nek nincs tesztje, az alpha18-on csak a fordítása ellenőrzött;
-  - **külön javításként, az F2 előtt:** a `Themes.setTheme(activity, …)` a 29edb22b3a óta a régi sorrend elé téve is beállítja a témát és a dinamikus színt. Emiatt a launcher-splash felismerése sosem teljesül, a második `setTheme` pedig a statikus palettát a dinamikus szín fölé teszi. Nem kék paletta és bekapcsolt dinamikus szín mellett így a Classic képernyők és az import-oldal hostja a palettát mutatja, a Compose UI viszont a háttérkép színeit.
+  - ~~**külön javításként, az F2 előtt:** a `Themes.setTheme(activity, …)` sorrendhibája (29edb22b3a)~~ – külön commitban javítva: a launcher-splash felismerése újra a manifest-téma alapján történik, a dinamikus szín pedig mindig a paletta után kerül fel, a párbeszédablakok újratémázásakor is. A paletta a `PrefsRepository`-n át olvasódik, így a backupból visszaállított, inicializálatlan app útja sem omlik össze.
 
 **Worktree:** a Task 2–13 és az F1 munka helyi checkpoint commitokban van, push nélkül.
 

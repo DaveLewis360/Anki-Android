@@ -19,7 +19,6 @@ import com.google.android.material.color.DynamicColors
 import com.ichi2.anki.BuildConfig
 import com.ichi2.anki.R
 import com.ichi2.anki.common.utils.android.systemIsInNightMode
-import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.settings.PrefsRepository
 import com.ichi2.anki.settings.enums.AppTheme
 import com.ichi2.anki.settings.enums.DayTheme
@@ -39,10 +38,15 @@ object Themes {
     var currentTheme: Theme = DayTheme.LIGHT
     val isNightTheme: Boolean get() = currentTheme is NightTheme
 
+    /**
+     * Applies the user's theme and its color palette, then, for an activity with dynamic color
+     * enabled, Material You wallpaper colors on top, so that they win over the static palette.
+     */
     fun setTheme(context: Context) {
         updateCurrentTheme(context)
         context.setTheme(currentTheme.styleResId)
         applyColorPalette(context)
+        applyDynamicColor(context)
     }
 
     /**
@@ -52,7 +56,7 @@ object Themes {
     private fun applyColorPalette(context: Context) {
         if (currentTheme == DayTheme.EINK) return // keep e-ink monochrome
         val overlayResId =
-            when (Prefs.colorPalette to isNightTheme) {
+            when (PrefsRepository(context).colorPalette to isNightTheme) {
                 "violet" to false -> R.style.ThemeOverlay_Palette_Violet_light
                 "violet" to true -> R.style.ThemeOverlay_Palette_Violet_dark
                 "green" to false -> R.style.ThemeOverlay_Palette_Green_light
@@ -70,8 +74,9 @@ object Themes {
 
     /**
      * Applies Material You wallpaper colors on top of the base theme and palette when
-     * the expressive UI's dynamic-color setting is enabled. Runs LAST so wallpaper
-     * colors win over the static palette for legacy (View-based) screens.
+     * the expressive UI's dynamic-color setting is enabled. Must run after
+     * [applyColorPalette], so that wallpaper colors win over the static palette for
+     * legacy (View-based) screens. Only activities take wallpaper colors.
      */
     private fun applyDynamicColor(context: Context) {
         if (currentTheme == DayTheme.EINK) return
@@ -93,14 +98,16 @@ object Themes {
     }
 
     /**
+     * Applies the user's theme, color palette, and dynamic color (see [setTheme]) before the decor
+     * view exists, and replaces a launcher splash background with the user's.
+     *
      * @param savedInstanceState the bundle provided to [Activity.onCreate]
      */
     fun setTheme(
         activity: Activity,
         savedInstanceState: Bundle?,
     ) {
-        setTheme(activity)
-        applyDynamicColor(activity)
+        // Read the manifest theme's window background before the user's theme replaces it.
         val tv = TypedValue()
         activity.theme.resolveAttribute(android.R.attr.windowBackground, tv, true)
         val hadLauncherSplash = tv.resourceId == R.drawable.launch_screen
