@@ -9,9 +9,11 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.commit
 import com.ichi2.anki.R
+import com.ichi2.anki.common.android.themes.disableXiaomiForceDarkMode
 import com.ichi2.anki.pages.AnkiPackageImporterFragment
 import com.ichi2.anki.pages.CsvImporter
 import com.ichi2.anki.pages.ExpressiveImportPageHost
+import com.ichi2.themes.Themes
 
 /**
  * Standalone host for Anki's backend-owned APKG/CSV option pages.
@@ -23,6 +25,10 @@ class ExpressiveImportPageActivity :
     FragmentActivity(),
     ExpressiveImportPageHost {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The backend pages are View-based: apply the user's light or dark theme, palette, and
+        // dynamic color before the window exists, as AnkiActivity does.
+        Themes.setTheme(this, savedInstanceState)
+        disableXiaomiForceDarkMode(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_single_fragment)
         if (savedInstanceState != null) return

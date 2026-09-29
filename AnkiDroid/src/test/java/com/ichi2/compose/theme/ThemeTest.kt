@@ -16,7 +16,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
-import com.ichi2.anki.common.android.R as CommonR
 
 /**
  * Verifies that the four AnkiDroid XML themes (light, plain, dark, black) are
@@ -36,14 +35,14 @@ class ThemeTest {
     @Test
     fun `light theme bridges colorPrimary to scheme primary`() {
         val scheme = themed(R.style.Theme_Light).toMaterial3ColorScheme()
-        val expected = ContextCompat.getColor(appContext, CommonR.color.material_light_blue_500)
+        val expected = ContextCompat.getColor(appContext, R.color.m3_primary_light)
         assertEquals(expected, scheme.primary.toArgb())
     }
 
     @Test
     fun `dark theme bridges colorPrimary to scheme primary`() {
         val scheme = themed(R.style.Theme_Dark).toMaterial3ColorScheme()
-        val expected = ContextCompat.getColor(appContext, CommonR.color.material_blue_400)
+        val expected = ContextCompat.getColor(appContext, R.color.m3_primary_dark)
         assertEquals(expected, scheme.primary.toArgb())
     }
 

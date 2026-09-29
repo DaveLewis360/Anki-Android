@@ -1,7 +1,7 @@
 # Material 3 Expressive modernizáció – megvalósíthatósági terv
 
-**Státusz:** javaslat, tulajdonosi döntésekre vár (7. fejezet).
-**Alap:** read-only kódbázis-audit kilenc subagent-feladattal (Expressive alapok és képernyők, Classic UI és runtime-utak, WebView-oldalak, build/függőségek/tesztek, akadálymentesség/lokalizáció/reszponzivitás), közvetlen dokumentum- és worktree-ellenőrzés, valamint a Google Maven AAR-metaadatainak lekérdezése. A számok a jelenlegi `feature/p0-foundation` worktree-re vonatkoznak.
+**Státusz:** elfogadva (D0–D8, 7. fejezet); az F0 és az F1 kész, az F2 következik.
+**Alap:** read-only kódbázis-audit kilenc subagent-feladattal (Expressive alapok és képernyők, Classic UI és runtime-utak, WebView-oldalak, build/függőségek/tesztek, akadálymentesség/lokalizáció/reszponzivitás), közvetlen dokumentum- és worktree-ellenőrzés, valamint a Google Maven AAR-metaadatainak lekérdezése. Az 1., 4. és 5. fejezet számai és „jelenlegi” állapotai az audit idejére, az F1 előtti `feature/p0-foundation` worktree-re vonatkoznak; az azóta elért állapotot a 2. fejezet írja le.
 
 ## 1. Verdikt
 
@@ -9,7 +9,7 @@
 
 | Szint | Ítélet | Indoklás |
 |---|---|---|
-| **A** – az Expressive Compose kliens valódi M3E-re hozása | ✅ alacsony technikai kockázat | A már rögzített `material3 1.4.0-alpha10` tartalmazza a fő M3E API-kat (`MaterialExpressiveTheme`, `MotionScheme`, `ButtonGroup`, `FloatingToolbar`, `LoadingIndicator`, `FloatingActionButtonMenu`, `ShortNavigationBar`, `WideNavigationRail`, `MaterialShapes`, `SplitButton`, `ToggleButton` – az AAR-ból ellenőrizve). A hiány a kódban van: egyetlen M3E komponenst használunk (`LinearWavyProgressIndicator`). |
+| **A** – az Expressive Compose kliens valódi M3E-re hozása | ✅ alacsony technikai kockázat | Az audit idején rögzített `material3 1.4.0-alpha10` is tartalmazta a fő M3E API-kat (`MaterialExpressiveTheme`, `MotionScheme`, `ButtonGroup`, `FloatingToolbar`, `LoadingIndicator`, `FloatingActionButtonMenu`, `ShortNavigationBar`, `WideNavigationRail`, `MaterialShapes`, `SplitButton`, `ToggleButton` – az AAR-ból ellenőrizve); az F1 óta `1.5.0-alpha18` van rögzítve. A hiány a kódban volt: egyetlen M3E komponenst használtunk (`LinearWavyProgressIndicator`). |
 | **B** – teljes app, nulla Classic runtime, egységes M3E | ⚠️ megvalósítható, de nagy program | A maradék Classic felületek egy részét natívan újra kell írni (jegyzetszerkesztő, beállítások, jegyzettípus- és sablonszerkesztő, indítási lánc, külső belépések, reviewer-extrák). A backend WebView-oldalak (deck options, statisztika, image occlusion) CSS-tokenhíddal, újraírás nélkül M3E-konzisztenssé tehetők. |
 | **C** – nem lehetséges vagy nem cél | ❌ | A felhasználói kártyasablonok M3E-sítése (felhasználói tartalom). Teljes M3E stabil `material3`-mal (az 1.4.0 stabilból hiányoznak a komponensek). Új M3E komponensek a View-alapú Classic UI-ban (az MDC Views karbantartási módban van, csak a `Theme.Material3Expressive.*` témák érhetők el). |
 
@@ -25,11 +25,29 @@
 - **Visszaállítás:** izolált staging és validálás még a megerősítés előtt. Utána mindig új biztonsági mentés készül, az adatbázis journalozott cserével kerül a helyére, és rollback történik, ha nem nyílik meg. A média Anki-szemantikával olvad be; ami nem mozdítható, karanténba kerül, és a Backups képernyőn újra hozzáadható vagy törölhető.
 - **Sync-kizárás:** a gyűjtemény- és a médiaszinkron külön kezelt, a csak várakozó médiaszinkron semmit nem blokkol, a backend saját állapotát a collection-sorban is újraellenőrizzük.
 - **Bizonyíték:** 32 gateway-teszt valódi backenddel (összeomlás minden journal-fázisban, rollback-hiba, karantén, elárvult staging), 29 coordinator- és 6 Activity-teszt, ktlint zöld.
-- **Nyitott:** a Compose UI-szemantika és az automatikus backupot indító resume-effekt Compose-szintű tesztje (F1 teszt-infrastruktúra), valamint az Android lint futtatása.
+- **Részben nyitott:** a Maintenance TalkBack-szemantikáját az F1 óta 5 Compose UI-teszt fedi. Az automatikus backupot indító resume-effekt Compose-szintű tesztje és az Android lint futtatása még hátravan.
 
-**Worktree:** a Task 2–13 munka helyi checkpoint commitban van, push nélkül.
+**Az F1 (toolchain és design-system alap) kész**, két review-kör és két delta-review után `APPROVED` (`semantic-review/2026-09-29-190247-pr-0.md` és a későbbi delta-review-k):
 
-**UI-mérőszámok** (`ui/expressive/**`, 39 fájl, 15 316 LOC):
+- **Toolchain (A-út):** `material3 1.5.0-alpha18` szigorú pinnel a version catalogban, az `ExperimentalMaterial3ExpressiveApi` opt-in központilag az `:AnkiDroid` modulra. A B-út (AGP 9.4, compileSdk 37, alpha25) spike-ja a G1 után, az F3 széles migrációja előtt jön.
+- **Téma:** `MaterialExpressiveTheme`, egyetlen `MotionScheme.expressive()`, a teljes M3E shape-skála és az M3E token-típusskála a kiemelt (emphasized) stílusokkal.
+- **Színek:** a hat paletta magszín, a teljes 48 szerepes „tonal spot” séma ebből generálódik, az MCU sémájával egyező tónusokkal. A válaszszínek az aktív primaryhoz harmonizálnak: az Again és a Hard legfeljebb 5°-ot fordul, a világos konténerek chromája legfeljebb 24.
+- **Kontraszt:** a konténereken lévő feliratok átlátszatlan on-container szerepeket használnak (a tónusokból adódóan ~7:1; a tesztek minden sémában ≥4,5:1-et követelnek meg), a számláló chipek konténer-szerep párokat, a kijelölt paklikártyán tömör akcentusokat.
+- **Teszt-infrastruktúra:** Compose ui-test (v2 rule), szerződésteszt a teljes típusskálára az alpha18 tokenjei ellen, tónus-, kontraszt- és harmonizációs tesztek, a Maintenance TalkBack-szemantikája, valamint 20 Roborazzi-screenshot világos és sötét témában: színszerepek, komponensek, paletták, 2× betűméret, RTL, az Account képernyő és az app saját komponensei.
+- **Bizonyíték:** az alpha18-on a `material3`-at használó összes kód tesztjei zöldek (193 teszt 21 osztályban): az Expressive, az account, a `com.ichi2.compose` (Classic Compose-téma), a `com.ichi2.themes` és a manifest-téma tesztcsomag, valamint a `verifyStandaloneApp` (azonosító- és FLOSS-függőségi szerződés). A ktlint és a `git diff --check` is zöld. A teljes `testFullDebugUnitTest` csomag az F1-ben nem futott.
+- **Örökölt hibák, amelyeket a szélesebb futás talált:**
+  - az import-oldal hostja (`ExpressiveImportPageActivity`) a manifestben a sötét launcher-témát kapta, és nem alkalmazta a felhasználó témáját, ezért világos módban is sötéten, a splash-háttér fölött jelent meg; most az `AnkiActivity`-hez hasonlóan a `Themes.setTheme` állítja be, teszttel;
+  - a Classic Compose-téma tesztje (`ThemeTest`) még a palettacsere előtti primary színeket várta.
+- **Továbbvitt tételek:**
+  - a vékony `ui/expressive/designsystem` komponensréteg és az Expressive lint-szabályok (színliterál, `tween`, szövegliterál, `indication = null`) az F2-be;
+  - a Home összesítő kártyája 2× betűméretnél kilóg (`app_components_font_2x` screenshot), ez az F3 Home-DoD része;
+  - a dinamikus szín csak eszközön ellenőrizhető, mert Robolectricben nincs háttérkép-szín;
+  - a teljes unit-tesztcsomag futtatása a B-út spike-jával együtt; az `ExistingProfileMigrationActivity`-nek nincs tesztje, az alpha18-on csak a fordítása ellenőrzött;
+  - **külön javításként, az F2 előtt:** a `Themes.setTheme(activity, …)` a 29edb22b3a óta a régi sorrend elé téve is beállítja a témát és a dinamikus színt. Emiatt a launcher-splash felismerése sosem teljesül, a második `setTheme` pedig a statikus palettát a dinamikus szín fölé teszi. Nem kék paletta és bekapcsolt dinamikus szín mellett így a Classic képernyők és az import-oldal hostja a palettát mutatja, a Compose UI viszont a háttérkép színeit.
+
+**Worktree:** a Task 2–13 és az F1 munka helyi checkpoint commitokban van, push nélkül.
+
+**UI-mérőszámok** az audit idején, az F1 előtt (`ui/expressive/**`, 39 fájl, 15 316 LOC):
 
 | Minta | Előfordulás |
 |---|---|
@@ -88,8 +106,8 @@ Egy képernyő akkor M3E-kész, ha az alábbiak mind teljesülnek:
 
 | Opció | `material3` | Toolchain-igény (AAR-metaadat) | Compose-alap | Értékelés |
 |---|---|---|---|---|
-| Jelenlegi | `1.4.0-alpha10` strict pin (`AnkiDroid/build.gradle:639-652`) | compileSdk ≥ 35, AGP ≥ 8.6 | BOM 2026.06.00 → 1.11.3 | Függőségváltozás nélkül is elkezdhető, de régi az API-alak (pl. nincs `SegmentedListItem`). A pin „Compose 1.7.5" kommentje elavult. |
-| **A** – azonnal | `1.5.0-alpha18` + `material3-adaptive-navigation-suite 1.5.0-alpha18` | nincs változás (compileSdk 36, AGP 9.0.1) | az igénye 1.11.0-beta02, a BOM 1.11.3-at ad | Az utolsó alpha, amely a jelenlegi toolchainnel működik. Az M3E API-k itt még experimentalok. |
+| Az F1 előtt | `1.4.0-alpha10` strict pin (`AnkiDroid/build.gradle:639-652`) | compileSdk ≥ 35, AGP ≥ 8.6 | BOM 2026.06.00 → 1.11.3 | Függőségváltozás nélkül is elkezdhető, de régi az API-alak (pl. nincs `SegmentedListItem`). A pin „Compose 1.7.5" kommentje elavult. |
+| **A** – az F1-ben bevezetve | `1.5.0-alpha18` + `material3-adaptive-navigation-suite 1.5.0-alpha18` | nincs változás (compileSdk 36, AGP 9.0.1) | az igénye 1.11.0-beta02, a BOM 1.11.3-at ad | Az utolsó alpha, amely a jelenlegi toolchainnel működik. Az M3E API-k itt még experimentalok. A navigation-suite az F3 shell-munkájával kerül be. |
 | **B** – spike után | `1.5.0-alpha25` körül + BOM 2026.09.00 | compileSdk 37 (az `android-37.0` platform telepítve) és AGP ≥ 9.1.0 (stabil 9.2.0–9.4.1 elérhető) | az igénye 1.12.0-beta01, a BOM 1.12.1 stabilt ad | Graduált API-k: `ButtonGroup` és `FloatingToolbar` (alpha22), flexible top app barok és expressive list itemek (alpha23). Blokkoló: az AGP 9.0.1 pin oka az issuetracker 491718901 (androidTest release-módú körkörös függőség, `gradle/libs.versions.toml:23-25`). |
 | Legfrissebb | `1.5.0-alpha28/29` | mint B | 1.13.0-alpha01 | Release-hez nem ajánlott, mert Compose UI alphát húz be. |
 | Stabil | `1.4.0` | — | — | Nem járható: hiányzik a `ButtonGroup`, a `FloatingToolbar`, a `LoadingIndicator`, a FAB menu és a `MaterialShapes`. |
@@ -99,15 +117,17 @@ Egy képernyő akkor M3E-kész, ha az alábbiak mind teljesülnek:
 
 Kötelező kísérő lépések:
 
-- a verzió a version catalogba kerüljön a hard-coded `build.gradle`-sorok helyett;
-- a `-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi` központilag kerüljön a `build.gradle.kts:147-154` opt-in blokkba (a warnings-as-errors miatt);
-- vékony design-system réteg (`ui/expressive/designsystem`), hogy az alpha API-változások egy helyen csapódjanak le.
+- ~~a verzió a version catalogba kerüljön a hard-coded `build.gradle`-sorok helyett~~ – az F1-ben kész;
+- ~~a `-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi` központilag kerüljön a `build.gradle.kts:147-154` opt-in blokkba (a warnings-as-errors miatt)~~ – az F1-ben kész;
+- vékony design-system réteg (`ui/expressive/designsystem`), hogy az alpha API-változások egy helyen csapódjanak le. A téma része az F1-ben a `ui/expressive/theme` csomagba került; a komponensréteg az F2-ben, az első M3E komponensekkel együtt jön.
 
 ## 5. Terület-mátrix
 
+A „Ma” oszlop az audit idejének állapota.
+
 | # | Terület | Ma | M3E cél | Megv. | Méret |
 |---|---|---|---|---|---|
-| 1 | Téma, tokenek | sima `MaterialTheme` (`ExpressiveTheme.kt:84-90`), kézi paletták, 5 shape-szint, nincs emphasized | `MaterialExpressiveTheme`, `MotionScheme.expressive()`, seed-alapú tonális paletták + dinamikus szín, kontrasztszintek, teljes shape-skála, emphasized tipográfia, harmonizált válaszszínek | ✅ | S–M |
+| 1 | Téma, tokenek | sima `MaterialTheme` (`ExpressiveTheme.kt:84-90`), kézi paletták, 5 shape-szint, nincs emphasized | `MaterialExpressiveTheme`, `MotionScheme.expressive()`, seed-alapú tonális paletták + dinamikus szín, kontrasztszintek, teljes shape-skála, emphasized tipográfia, harmonizált válaszszínek | ✅ az F1-ben kész, a kontrasztszintek nélkül | S–M |
 | 2 | Shell, navigáció | egyedi 44 dp alsó sáv (`ExpressiveBottomBar.kt:98`), `AnimatedVisibility`-overlayek, `BackHandler` | `NavigationSuiteScaffold`, predictive back (`PredictiveBackHandler` vagy Navigation 3), képernyőnként `Scaffold` | ✅ | M |
 | 3 | Tanulás (chrome) | `Surface` válaszgombok, szöveges „Loading…", 7 ikonos sor | `ButtonGroup` válaszgombok intervallummal, shape-morph „Show answer", `HorizontalFloatingToolbar` + overflow, `LoadingIndicator`, MotionScheme-átmenetek, haptika; a kártya-WebView marad | ✅ | M |
 | 4 | Home | egyedi speed-dial FAB, `Surface` deck-sorok | flexible top app bar, `FloatingActionButtonMenu`, szegmentált `ListItem`-csoportok, `ModalBottomSheet` deck-műveletek | ✅ | M |
@@ -132,7 +152,7 @@ Durva időkeretek, azonos feltételezéssel (1 fő, ±50%):
 | Fázis | Tartalom | Kilépési kapu | Idő |
 |---|---|---|---|
 | F0 | A Task 13 lezárása: a blocking-hiba javítása (az automatikus backup ne blokkolja a collectiont), overview-címke, stringek, tesztek, ktlint, semantic review, `PARITY_CONTRACT.md` | a review `APPROVED`, a Task 13 validációja zöld | **kész** |
-| F1 | Toolchain: A azonnal, B spike-ban. Design-system réteg, `MaterialExpressiveTheme`, tokenek, lint-szabályok, Compose screenshot- és UI-teszt alap | A-n a build és a unit tesztek zöldek; döntés a B-ről | 1–2 hét |
+| F1 | Toolchain: A azonnal, B spike-ban. Design-system réteg, `MaterialExpressiveTheme`, tokenek, lint-szabályok, Compose screenshot- és UI-teszt alap | A-n a build és a unit tesztek zöldek; döntés a B-ről | **kész** az A-n, a `material3`-at használó kód tesztjeivel (a komponensréteg és a lint-szabályok az F2-ben, a B-spike az F3 előtt) |
 | F2 | A tanulás képernyő mint vertikális szelet a teljes DoD-vel; a kártyasablon-hűség javítása | **G1: tulajdonosi vizuális jóváhagyás** referencia-eszközön; screenshot-mátrix | 1–2 hét |
 | F3 | Shell és navigáció, Home, Browse | G2: predictive back, adaptív elrendezés, TalkBack-ellenőrzés | 3–4 hét |
 | F4 | Beállítás-paritás; More, Account, Transfer, Maintenance, Stats | DoD minden képernyőn, 0 lint-sértés | 3–5 hét |
@@ -189,7 +209,9 @@ Az F0–F4 után a felhasználó által látott Expressive kliens valódi M3E (A
 
 1. ~~**F0:** a Task 13 lezárása~~ – kész.
 2. ~~**Döntések:** D0–D8~~ – elfogadva: D0 igen, D1 az A-út, D8 igen; a D2–D7 a javaslat szerint.
-3. **F1, majd F2:** a tanulás képernyő vertikális szelete tulajdonosi jóváhagyásra, a DoD élő ellenőrzésével.
+3. ~~**F1:** toolchain és design-system alap~~ – kész.
+4. **F2:** a tanulás képernyő vertikális szelete tulajdonosi jóváhagyásra (G1): `ButtonGroup` válaszgombok, shape-morph „Show answer”, `LoadingIndicator`, lebegő eszköztár, `MotionScheme`-átmenetek, haptika, a kártyasablon `!important`-override-jainak megszüntetése, Expressive lint-szabályok és screenshot-mátrix, a DoD élő ellenőrzésével.
+5. **A B-út spike-ja** a G1 után, az F3 széles migrációja előtt.
 
 ## Források
 

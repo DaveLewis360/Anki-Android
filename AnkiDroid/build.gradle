@@ -636,23 +636,24 @@ dependencies {
     implementation platform(libs.androidx.compose.bom)
     implementation libs.androidx.compose.ui
     implementation libs.androidx.compose.ui.tooling.preview
-    // Pinned above the BOM: stable 1.4.0 lacks the Expressive wavy progress
-    // indicators; alpha10 has them while staying on Compose 1.7.5 (AGP 9.0-compatible)
-    implementation 'androidx.compose.material3:material3:1.4.0-alpha10'
-    // The Compose BOM pins material3 1.4.0 stable (which wins conflict resolution
-    // over a prerelease); a strict constraint keeps the expressive wavy build
+    // Above the BOM's stable material3: see `androidxComposeMaterial3` in the version catalog.
+    implementation libs.androidx.compose.material3
+    // A strict constraint keeps the pinned alpha even if another dependency asks for a newer
+    // material3, which would need a newer compileSdk and AGP than this build uses.
     constraints {
         implementation('androidx.compose.material3:material3') {
-            version { strictly '1.4.0-alpha10' }
-            because 'stable 1.4.0 lacks LinearWavyProgressIndicator'
+            version { strictly libs.versions.androidxComposeMaterial3.get() }
+            because 'Material 3 Expressive components; newer alphas need compileSdk 37 and AGP 9.1+'
         }
         implementation('androidx.compose.material3:material3-android') {
-            version { strictly '1.4.0-alpha10' }
+            version { strictly libs.versions.androidxComposeMaterial3.get() }
         }
     }
     implementation libs.androidx.lifecycle.viewmodel.compose
     implementation libs.androidx.lifecycle.runtime.compose
     debugImplementation libs.androidx.compose.ui.tooling
+    // Declares the ComponentActivity that Compose UI tests host their content in (debug builds only)
+    debugImplementation libs.androidx.compose.ui.test.manifest
     implementation libs.androidx.annotation
     implementation libs.androidx.appcompat
     implementation libs.androidx.browser
@@ -754,6 +755,7 @@ dependencies {
     testImplementation libs.androidx.work.testing
     testImplementation libs.roborazzi
     testImplementation libs.roborazzi.rule
+    testImplementation libs.androidx.compose.ui.test.junit4
     // for testing flows
     testImplementation libs.cashapp.turbine
 

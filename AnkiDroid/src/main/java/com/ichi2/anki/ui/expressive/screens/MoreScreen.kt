@@ -203,7 +203,7 @@ fun MoreScreen(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
             Surface(
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = MaterialTheme.shapes.extraLargeIncreased,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier =
                     Modifier
@@ -252,7 +252,7 @@ fun MoreScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Surface(
-                                shape = MaterialTheme.shapes.small,
+                                shape = MaterialTheme.shapes.medium,
                                 color = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             ) {

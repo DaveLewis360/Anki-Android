@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.ichi2.anki.ui.expressive.theme.LocalAnswerColors
 import com.ichi2.anki.ui.expressive.theme.PillShape
@@ -180,7 +181,7 @@ private fun AnswerButton(
                 .alpha(if (enabled) 1f else 0.6f)
                 .pressScale(interaction)
                 .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.largeIncreased,
         color = option.container,
         contentColor = option.onContainer,
         shadowElevation = 2.dp,
@@ -189,7 +190,8 @@ private fun AnswerButton(
             Modifier.fillMaxWidth().padding(vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(option.interval, style = MaterialTheme.typography.labelMedium, color = option.onContainer.copy(alpha = 0.75f))
+            // Intervals mix digits, symbols, and units: their own direction keeps "<1m" intact in right-to-left layouts.
+            Text(option.interval, style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Content))
             Spacer(Modifier.height(2.dp))
             Text(option.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }

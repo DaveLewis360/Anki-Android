@@ -52,7 +52,9 @@ import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveSettings
 import com.ichi2.anki.ui.expressive.components.GestureAction
 import com.ichi2.anki.ui.expressive.theme.expressivePalettes
+import com.ichi2.anki.ui.expressive.theme.isExpressiveDark
 import com.ichi2.anki.ui.expressive.theme.supportsDynamicColor
+import com.ichi2.anki.ui.expressive.theme.tonalSpotColorScheme
 
 /** Full expressive Settings screen: theme, palette, Material You, about. */
 @Composable
@@ -145,8 +147,11 @@ fun SettingsScreen(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
+                    val dark = isExpressiveDark(settings.themeMode)
                     expressivePalettes.forEach { palette ->
                         val selected = settings.paletteKey == palette.key
+                        // The swatch previews the generated primary, the accent the app will actually use.
+                        val preview = remember(palette, dark) { tonalSpotColorScheme(palette.seed, dark) }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Surface(
                                 shape = CircleShape,
@@ -156,7 +161,7 @@ fun SettingsScreen(
                                         width = if (selected) 3.dp else 1.dp,
                                         color =
                                             if (selected) {
-                                                palette.primaryLight
+                                                preview.primary
                                             } else {
                                                 MaterialTheme.colorScheme.outlineVariant
                                             },
@@ -172,14 +177,14 @@ fun SettingsScreen(
                                         .padding(4.dp)
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .background(palette.primaryLight),
+                                        .background(preview.primary),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (selected) {
                                         Icon(
                                             painterResource(R.drawable.ic_checkmark),
                                             contentDescription = null,
-                                            tint = Color.White,
+                                            tint = preview.onPrimary,
                                             modifier = Modifier.size(18.dp),
                                         )
                                     }
@@ -247,7 +252,7 @@ private fun SectionCard(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
         )
         Surface(
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.extraLargeIncreased,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -289,7 +294,7 @@ private fun InfoRow(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
-            shape = MaterialTheme.shapes.small,
+            shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ) {
@@ -329,7 +334,7 @@ private fun GestureSettingRow(
         },
         modifier =
             Modifier
-                .clip(MaterialTheme.shapes.medium)
+                .clip(MaterialTheme.shapes.largeIncreased)
                 .clickable { open = true },
     )
     if (open) {

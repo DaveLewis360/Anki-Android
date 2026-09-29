@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveExportFormat
@@ -72,6 +73,7 @@ internal fun TransferScreen(
                             stringResource(R.string.expressive_import_title)
                         },
                     style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.semantics { heading() },
                 )
             }

@@ -61,7 +61,12 @@ fun GreetingHeader(modifier: Modifier = Modifier) {
         }
     val date = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.ENGLISH))
     Column(modifier = modifier) {
-        Text(greeting, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            greeting,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Text(date, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -81,7 +86,7 @@ fun TodaySummaryCard(
                 .fillMaxWidth()
                 .pressScale(remember { MutableInteractionSource() })
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onStartStudying),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.extraLargeIncreased,
         color = MaterialTheme.colorScheme.primaryContainer,
     ) {
         Column(Modifier.padding(20.dp)) {
@@ -129,7 +134,7 @@ private fun SummaryNumber(
         Text(
             label,
             style = MaterialTheme.typography.labelLarge,
-            color = base.copy(alpha = 0.8f),
+            color = base,
             modifier = Modifier.padding(bottom = 10.dp),
         )
     }
@@ -174,7 +179,7 @@ fun DeckCard(
                     onClick = onClick,
                     onLongClick = onLongClick,
                 ),
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.extraLarge,
         color =
             if (selected) {
                 MaterialTheme.colorScheme.secondaryContainer
@@ -218,14 +223,27 @@ fun DeckCard(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            if (deck.newCount > 0) CountChip("${deck.newCount}", MaterialTheme.colorScheme.primary)
-            if (deck.learnCount > 0) CountChip("${deck.learnCount}", MaterialTheme.colorScheme.tertiary)
-            if (deck.dueCount > 0) CountChip("${deck.dueCount}", MaterialTheme.colorScheme.error)
+            val colors = MaterialTheme.colorScheme
+            // A selected card is secondaryContainer, the chip containers' own tone, so there the chips take the solid accents.
+            val chips =
+                listOf(
+                    Triple(deck.newCount, colors.primary to colors.onPrimary, colors.primaryContainer to colors.onPrimaryContainer),
+                    Triple(deck.learnCount, colors.tertiary to colors.onTertiary, colors.tertiaryContainer to colors.onTertiaryContainer),
+                    Triple(deck.dueCount, colors.error to colors.onError, colors.errorContainer to colors.onErrorContainer),
+                )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                chips.forEach { (count, solid, tonal) ->
+                    if (count > 0) {
+                        val (container, content) = if (selected) solid else tonal
+                        CountChip("$count", container, content)
+                    }
+                }
+            }
             if (deck.newCount + deck.learnCount + deck.dueCount == 0) {
                 Text(
                     "Done",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = colors.onSurfaceVariant,
                 )
             }
         }

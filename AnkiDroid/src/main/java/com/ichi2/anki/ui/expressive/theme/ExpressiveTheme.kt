@@ -5,47 +5,35 @@ package com.ichi2.anki.ui.expressive.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Expressive typography: generous, confident sizes with emphasized weights. */
-private val ExpressiveTypography =
-    Typography(
-        displayLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 52.sp, lineHeight = 58.sp, letterSpacing = (-0.5).sp),
-        displayMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 42.sp, lineHeight = 48.sp, letterSpacing = (-0.4).sp),
-        headlineLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 36.sp),
-        headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 26.sp, lineHeight = 32.sp),
-        headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-        titleLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 20.sp, lineHeight = 26.sp),
-        titleMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = 0.1.sp),
-        titleSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-        bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = 0.2.sp),
-        bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-        bodySmall = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
-        labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp),
-        labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
-        labelSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp),
-    )
+/**
+ * The Material 3 Expressive type scale: the baseline styles and the emphasized ones M3 Expressive
+ * adds (for example `MaterialTheme.typography.titleLargeEmphasized`), sized in `sp` so that it
+ * follows the system font scale. `Typography()` alone binds the constructor whose emphasized
+ * styles merely repeat the baseline ones. Naming an emphasized style binds the Expressive
+ * constructor instead, which takes every other style from the Material tokens, and the style
+ * named here is its token too: display large at medium weight and without tracking.
+ */
+internal val ExpressiveTypography: Typography =
+    Typography(displayLargeEmphasized = Typography().displayLarge.copy(fontWeight = FontWeight.Medium, letterSpacing = 0.sp))
 
-/** Expressive shape scale: big, friendly, rounded corners. */
-val ExpressiveShapes =
-    Shapes(
-        extraSmall = RoundedCornerShape(10.dp),
-        small = RoundedCornerShape(14.dp),
-        medium = RoundedCornerShape(18.dp),
-        large = RoundedCornerShape(26.dp),
-        extraLarge = RoundedCornerShape(34.dp),
-    )
+/**
+ * The Material 3 Expressive shape scale: extra small 4 dp, small 8, medium 12, large 16,
+ * large increased 20, extra large 28, extra large increased 32, and extra extra large 48.
+ */
+val ExpressiveShapes = Shapes()
 
 /** Pill shape used for chips and buttons. */
 val PillShape = RoundedCornerShape(50)
@@ -53,10 +41,14 @@ val PillShape = RoundedCornerShape(50)
 /** Whether Material You dynamic color is available (Android 12+). */
 val supportsDynamicColor: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
+/** One instance, so that recomposing the theme never invalidates everything that reads the motion scheme. */
+private val ExpressiveMotionScheme = MotionScheme.expressive()
+
 /**
- * The expressive theme. Colors resolve in this priority:
- * Material You dynamic color (when available & enabled) → selected palette → blue base.
- * Motion is provided by spring animations inside the expressive components.
+ * The Material 3 Expressive theme: expressive motion springs, the full shape scale, and the
+ * emphasized type scale. Colors come from Material You dynamic color when it is available and
+ * enabled, and otherwise from the selected palette's generated scheme. Answer colors are
+ * harmonized with whichever scheme is active.
  */
 @Composable
 fun ExpressiveAnkiTheme(
@@ -65,24 +57,20 @@ fun ExpressiveAnkiTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val dark =
-        when (themeMode) {
-            "light" -> false
-            "dark" -> true
-            else -> isSystemInDarkTheme()
-        }
+    val dark = isExpressiveDark(themeMode)
     val context = LocalContext.current
     val colors =
         if (dynamicColor && supportsDynamicColor) {
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         } else {
-            val base = if (dark) buildDarkScheme() else buildLightScheme()
-            val palette = expressivePalettes.firstOrNull { it.key == paletteKey }
-            if (palette == null || palette.key == "blue") base else base.withPalette(palette, dark)
+            val palette = expressivePalette(paletteKey)
+            remember(palette, dark) { tonalSpotColorScheme(palette.seed, dark) }
         }
-    CompositionLocalProvider(LocalAnswerColors provides answerColorsFor(dark)) {
-        MaterialTheme(
+    val answerColors = remember(colors.primary, dark) { harmonizedAnswerColors(colors.primary, dark) }
+    CompositionLocalProvider(LocalAnswerColors provides answerColors) {
+        MaterialExpressiveTheme(
             colorScheme = colors,
+            motionScheme = ExpressiveMotionScheme,
             shapes = ExpressiveShapes,
             typography = ExpressiveTypography,
             content = content,

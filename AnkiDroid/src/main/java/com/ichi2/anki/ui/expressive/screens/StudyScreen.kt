@@ -674,7 +674,7 @@ fun StudyScreen(
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                     keyboardActions = KeyboardActions(onDone = { viewModel.revealCurrent() }),
-                                    shape = MaterialTheme.shapes.large,
+                                    shape = MaterialTheme.shapes.extraLarge,
                                 )
                             }
                         }
@@ -1089,7 +1089,7 @@ private fun CongratsPane(
         TextButton(enabled = !working, onClick = onDeckOptions) { Text("Deck options") }
         Surface(
             onClick = onClose,
-            shape = MaterialTheme.shapes.large,
+            shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {

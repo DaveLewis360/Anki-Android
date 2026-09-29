@@ -35,6 +35,12 @@ androidxBenchmark = "1.4.1"
 androidxBrowser = "1.10.0"
 # https://developer.android.com/jetpack/compose/bom/bom-mapping
 androidxComposeBillOfMaterials = "2026.06.00"
+# https://developer.android.com/jetpack/androidx/releases/compose-material3
+# Deliberately above the BOM's stable material3: the Material 3 Expressive components
+# (ButtonGroup, FloatingToolbar, LoadingIndicator, MotionScheme, ...) exist only in 1.5.0
+# alphas. 1.5.0-alpha18 is the newest one whose AAR metadata still accepts compileSdk 36
+# and AGP 9.0.x; alpha19+ require compileSdk 37 and AGP 9.1+. Strictly pinned in AnkiDroid/build.gradle.
+androidxComposeMaterial3 = "1.5.0-alpha18"
 # https://developer.android.com/jetpack/androidx/releases/constraintlayout
 androidxConstraintlayout = "2.2.1"
 # https://developer.android.com/jetpack/androidx/releases/core
@@ -158,8 +164,11 @@ androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = 
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
-androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+# Exception to the BOM rule above: see `androidxComposeMaterial3`.
+androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "androidxComposeMaterial3" }
 androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycleProcess" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycleProcess" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "androidxLifecycleProcess" }

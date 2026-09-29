@@ -343,7 +343,7 @@ private fun BrowseRow(
     onLongClick: () -> Unit,
 ) {
     Surface(
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.extraLarge,
         color =
             if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         modifier =

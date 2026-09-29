@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -139,6 +140,7 @@ private fun SignedOutAccountContent(
         Text(
             text = stringResource(R.string.expressive_account_sign_in_heading),
             style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() },
         )
         Text(
@@ -249,10 +251,11 @@ private fun SignedInAccountContent(
         Text(
             text = stringResource(R.string.expressive_account_signed_in_heading),
             style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() },
         )
         Surface(
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.extraLargeIncreased,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = Modifier.fillMaxWidth(),
         ) {

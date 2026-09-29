@@ -34,17 +34,18 @@ fun Modifier.pressScale(interactionSource: MutableInteractionSource): Modifier {
     return this.scale(scale)
 }
 
-/** A small rounded count chip with a tonal color. */
+/** A small pill count chip in a tonal container role, for example primaryContainer with onPrimaryContainer. */
 @Composable
 fun CountChip(
     text: String,
-    color: Color,
+    containerColor: Color,
+    contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier =
             modifier
-                .background(color.copy(alpha = 0.16f), PillShape)
+                .background(containerColor, PillShape)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -52,7 +53,7 @@ fun CountChip(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = color,
+            color = contentColor,
         )
     }
 }

@@ -187,7 +187,7 @@ private fun HeroTile(
     content: Color,
     modifier: Modifier = Modifier,
 ) {
-    Surface(shape = MaterialTheme.shapes.extraLarge, color = container, modifier = modifier) {
+    Surface(shape = MaterialTheme.shapes.extraLargeIncreased, color = container, modifier = modifier) {
         Column(Modifier.padding(16.dp)) {
             Icon(painterResource(iconRes), contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
             Spacer(Modifier.height(10.dp))
@@ -199,9 +199,9 @@ private fun HeroTile(
                     color = content,
                 )
                 Spacer(Modifier.width(4.dp))
-                Text(suffix, style = MaterialTheme.typography.labelSmall, color = content.copy(alpha = 0.7f))
+                Text(suffix, style = MaterialTheme.typography.labelSmall, color = content)
             }
-            Text(label, style = MaterialTheme.typography.labelMedium, color = content.copy(alpha = 0.7f))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = content)
         }
     }
 }
@@ -213,7 +213,7 @@ private fun MiniTile(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier,
     ) {
@@ -242,7 +242,7 @@ private fun WeekChartCard(
     val dailyMax = (s.dailyReviews.maxOfOrNull { it.count } ?: 0).coerceAtLeast(1)
     val locale = ConfigurationCompat.getLocales(LocalConfiguration.current)[0] ?: Locale.getDefault()
     Surface(
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.extraLargeIncreased,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
@@ -292,7 +292,7 @@ private fun WeekChartCard(
                                     } else {
                                         MaterialTheme.colorScheme.primaryContainer
                                     },
-                                    MaterialTheme.shapes.small,
+                                    MaterialTheme.shapes.medium,
                                 ),
                         )
                     }
@@ -351,7 +351,7 @@ private fun CardMixCard(
     )
 
     Surface(
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.extraLargeIncreased,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
@@ -415,7 +415,7 @@ private fun MixLegend(
 @Composable
 private fun AllTimeCard(s: ExpressiveStats) {
     Surface(
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.extraLargeIncreased,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {

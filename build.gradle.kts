@@ -151,6 +151,8 @@ subprojects {
                 // compose-runtime on compileOnly, not material3.
                 if (project.path == ":AnkiDroid" && !taskName.contains("TestFixtures")) {
                     compilerArgs += "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+                    // Material 3 Expressive APIs are experimental in the pinned material3 alpha.
+                    compilerArgs += "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi"
                 }
                 freeCompilerArgs = compilerArgs
             }
