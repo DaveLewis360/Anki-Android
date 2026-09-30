@@ -19,18 +19,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -60,6 +55,9 @@ import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveCongratulationsInfo
 import com.ichi2.anki.ui.expressive.ExpressiveTimeboxInfo
 import com.ichi2.anki.ui.expressive.components.GestureAction
+import com.ichi2.anki.ui.expressive.designsystem.ExpressiveMenu
+import com.ichi2.anki.ui.expressive.designsystem.ExpressiveMenuItem
+import com.ichi2.anki.ui.expressive.designsystem.MediumButton
 import com.ichi2.anki.ui.internationalization.SentenceCase
 import com.ichi2.anki.ui.internationalization.toSentenceCase
 import kotlin.math.roundToInt
@@ -250,23 +248,18 @@ internal fun UnburyDialog(
 /** The card actions a long press on the card offers. */
 @Composable
 internal fun GestureActionMenu(
+    expanded: Boolean,
     onAction: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val actions = listOf(GestureAction.FLAG, GestureAction.EDIT, GestureAction.BURY, GestureAction.SUSPEND, GestureAction.UNDO)
-    DropdownMenuPopup(expanded = true, onDismissRequest = onDismiss) {
-        // As the flag menu, it scrolls in a window too short for it, as at large font sizes.
-        DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1), modifier = Modifier.verticalScroll(rememberScrollState())) {
-            actions.forEachIndexed { index, action ->
-                DropdownMenuItem(
-                    onClick = { onAction(action.key) },
-                    text = { Text(action.label(context)) },
-                    shape = MenuDefaults.itemShape(index, actions.size).shape,
-                )
-            }
-        }
-    }
+    // As the flag menu, it scrolls in a window too short for it, as at large font sizes.
+    ExpressiveMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        groups = listOf(actions.map { action -> ExpressiveMenuItem(action.label(context), onClick = { onAction(action.key) }) }),
+    )
 }
 
 private enum class PaneEmphasis { PRIMARY, SECONDARY, TERTIARY }
@@ -366,18 +359,7 @@ private fun PaneButton(
 ) {
     val modifier = Modifier.fillMaxWidth()
     when (emphasis) {
-        PaneEmphasis.PRIMARY -> {
-            val height = ButtonDefaults.MediumContainerHeight
-            Button(
-                onClick = onClick,
-                shapes = ButtonDefaults.shapesFor(height),
-                modifier = modifier.heightIn(min = height),
-                enabled = enabled,
-                contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = false, hasEndIcon = false),
-            ) {
-                Text(label, style = ButtonDefaults.textStyleFor(height), textAlign = TextAlign.Center)
-            }
-        }
+        PaneEmphasis.PRIMARY -> MediumButton(label = label, onClick = onClick, modifier = modifier, enabled = enabled)
         PaneEmphasis.SECONDARY ->
             FilledTonalButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier, enabled = enabled) {
                 Text(label, textAlign = TextAlign.Center)

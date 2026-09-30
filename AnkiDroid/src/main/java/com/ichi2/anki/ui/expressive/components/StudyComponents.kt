@@ -10,26 +10,18 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
@@ -39,7 +31,6 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,6 +64,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ichi2.anki.Flag
 import com.ichi2.anki.R
+import com.ichi2.anki.ui.expressive.designsystem.ExpressiveMenu
+import com.ichi2.anki.ui.expressive.designsystem.ExpressiveMenuItem
+import com.ichi2.anki.ui.expressive.designsystem.MediumButton
 import com.ichi2.anki.ui.expressive.theme.LocalAnswerColors
 import com.ichi2.anki.ui.expressive.theme.PillShape
 import com.ichi2.anki.ui.internationalization.SentenceCase
@@ -346,24 +340,23 @@ fun StudyCardActions(
             ) {
                 FlagIcon(flag, contentDescription = labels.flagCard, enabled = enabled)
             }
-            DropdownMenuPopup(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
-                val named = Flag.entries.mapNotNull { option -> flagNames[option]?.let { option to it } }
-                // Eight flags are taller than a phone's landscape window at large font sizes: the group scrolls.
-                DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    named.forEachIndexed { index, (option, name) ->
-                        DropdownMenuItem(
-                            selected = option == flag,
-                            onClick = {
-                                flagMenu = false
-                                onSetFlag(option)
-                            },
-                            text = { Text(name) },
-                            shapes = MenuDefaults.itemShape(index, named.size),
-                            leadingIcon = { FlagIcon(option, contentDescription = null) },
-                        )
-                    }
-                }
-            }
+            val named = Flag.entries.mapNotNull { option -> flagNames[option]?.let { option to it } }
+            // Eight flags are taller than a phone's landscape window at large font sizes: the menu scrolls.
+            ExpressiveMenu(
+                expanded = flagMenu,
+                onDismissRequest = { flagMenu = false },
+                groups =
+                    listOf(
+                        named.map { (option, name) ->
+                            ExpressiveMenuItem(
+                                label = name,
+                                onClick = { onSetFlag(option) },
+                                selected = option == flag,
+                                leadingIcon = { FlagIcon(option, contentDescription = null) },
+                            )
+                        },
+                    ),
+            )
         }
         IconButton(onClick = onEdit, enabled = enabled) {
             Icon(painterResource(R.drawable.ic_edit_note), contentDescription = stringResource(R.string.cardeditor_title_edit_card))
@@ -375,29 +368,22 @@ fun StudyCardActions(
                     contentDescription = stringResource(R.string.expressive_study_more_card_actions),
                 )
             }
-            DropdownMenuPopup(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                // Burying and suspending are two groups: each acts on the card or on its whole note.
-                val groups =
+            // Burying and suspending are two groups: each acts on the card or on its whole note.
+            ExpressiveMenu(
+                expanded = moreMenu,
+                onDismissRequest = { moreMenu = false },
+                groups =
                     listOf(
-                        listOf(labels.buryCard to onBuryCard, labels.buryNote to onBuryNote),
-                        listOf(labels.suspendCard to onSuspendCard, labels.suspendNote to onSuspendNote),
-                    )
-                groups.forEachIndexed { groupIndex, group ->
-                    if (groupIndex > 0) Spacer(Modifier.height(MenuDefaults.GroupSpacing))
-                    DropdownMenuGroup(shapes = MenuDefaults.groupShape(groupIndex, groups.size)) {
-                        group.forEachIndexed { index, (label, action) ->
-                            DropdownMenuItem(
-                                onClick = {
-                                    moreMenu = false
-                                    action()
-                                },
-                                text = { Text(label) },
-                                shape = MenuDefaults.itemShape(index, group.size).shape,
-                            )
-                        }
-                    }
-                }
-            }
+                        listOf(
+                            ExpressiveMenuItem(labels.buryCard, onBuryCard),
+                            ExpressiveMenuItem(labels.buryNote, onBuryNote),
+                        ),
+                        listOf(
+                            ExpressiveMenuItem(labels.suspendCard, onSuspendCard),
+                            ExpressiveMenuItem(labels.suspendNote, onSuspendNote),
+                        ),
+                    ),
+            )
         }
     }
 }
@@ -434,21 +420,17 @@ fun ShowAnswerButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val height = ButtonDefaults.MediumContainerHeight
-    Button(
+    MediumButton(
+        label = stringResource(R.string.show_answer),
         onClick = onClick,
-        shapes = ButtonDefaults.shapesFor(height),
-        modifier = modifier.fillMaxWidth().heightIn(min = height),
+        modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         colors =
             ButtonDefaults.buttonColors(
                 disabledContainerColor = MaterialTheme.colorScheme.primary,
                 disabledContentColor = MaterialTheme.colorScheme.onPrimary,
             ),
-        contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = false, hasEndIcon = false),
-    ) {
-        Text(stringResource(R.string.show_answer), style = ButtonDefaults.textStyleFor(height))
-    }
+    )
 }
 
 /** One answer rating: its label, when the card would be shown next, and its colors. */
@@ -575,17 +557,15 @@ private fun AnswerButton(
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
-    val height = ButtonDefaults.MediumContainerHeight
     val description =
         if (option.interval.isEmpty()) {
             option.label
         } else {
             stringResource(R.string.expressive_study_answer_with_interval, option.label, option.interval)
         }
-    Button(
+    MediumButton(
         onClick = onClick,
-        shapes = ButtonDefaults.shapesFor(height),
-        modifier = modifier.heightIn(min = height).semantics { contentDescription = description },
+        modifier = modifier.semantics { contentDescription = description },
         enabled = enabled,
         // Disabled only while the previous answer is saved: the ratings keep their colors meanwhile.
         colors =

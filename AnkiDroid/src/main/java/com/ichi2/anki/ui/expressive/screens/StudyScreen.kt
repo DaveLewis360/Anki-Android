@@ -664,15 +664,11 @@ fun StudyScreen(
                     )
                 }
             }
-            if (gestureMenu) {
-                GestureActionMenu(
-                    onAction = { action ->
-                        gestureMenu = false
-                        performGesture(action)
-                    },
-                    onDismiss = { gestureMenu = false },
-                )
-            }
+            GestureActionMenu(
+                expanded = gestureMenu,
+                onAction = { action -> performGesture(action) },
+                onDismiss = { gestureMenu = false },
+            )
         }
     }
 

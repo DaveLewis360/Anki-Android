@@ -181,7 +181,7 @@ class StudyPanesTest : RobolectricTest() {
     @Config(qualifiers = "w914dp-h411dp", fontScale = 2f)
     fun `the long press menu names each action and reaches the last in a short window`() {
         val chosen = mutableListOf<String>()
-        show { GestureActionMenu(onAction = { chosen += it }, onDismiss = {}) }
+        show { GestureActionMenu(expanded = true, onAction = { chosen += it }, onDismiss = {}) }
 
         listOf(GestureAction.UNDO, GestureAction.FLAG).forEach { action ->
             composeRule

@@ -1,6 +1,6 @@
 # Material 3 Expressive modernizáció – megvalósíthatósági terv
 
-**Státusz:** elfogadva (D0–D8, 7. fejezet); az F0 és az F1 kész, az F2 folyamatban (az F2A–F2D kész).
+**Státusz:** elfogadva (D0–D8, 7. fejezet); az F0 és az F1 kész, az F2 folyamatban (az F2A–F2E kész, a G1-átadás következik).
 **Alap:** read-only kódbázis-audit kilenc subagent-feladattal (Expressive alapok és képernyők, Classic UI és runtime-utak, WebView-oldalak, build/függőségek/tesztek, akadálymentesség/lokalizáció/reszponzivitás), közvetlen dokumentum- és worktree-ellenőrzés, valamint a Google Maven AAR-metaadatainak lekérdezése. Az 1., 4. és 5. fejezet számai és „jelenlegi” állapotai az audit idejére, az F1 előtti `feature/p0-foundation` worktree-re vonatkoznak; az azóta elért állapotot a 2. fejezet írja le.
 
 ## 1. Verdikt
@@ -51,8 +51,9 @@
 - **F2B** (`8fd196ea76`): M3E chrome. `Scaffold` + TopAppBar alcímmel és wavy haladásjelzővel, `HorizontalFloatingToolbar` a kártyaműveletekhez, `ButtonGroup` válaszgombok intervallummal, medium „Show answer”, csoportosított és görgethető menük, haptika; rövid, széles ablakban a vezérlők egy sorba kerülnek.
 - **F2C** (`6dc0e09204`): a töltés-, hiba- és gratulációs panel, valamint a timebox-, unbury- és custom study párbeszédablak az Anki saját szövegeivel (`TR`) és `MaterialShapes`-jelvényekkel.
 - **Fordítás** (`394b040a6a`): 16 string, amely `TR`-fordítást duplikált, most a `TR`-ből jön.
-- **F2D:** az Expressive lint-szabályok (a 3. fejezet 11. pontja) és hibamentes teljes Android lint; a futás 69 örökölt hibát talált, mind javítva.
-- **Hátravan:** az F2E (a vékony design-system réteg), a screenshot-mátrix újrarögzítése és a G1-átadás: debug APK és az eszközön ellenőrizendő lista.
+- **F2D** (`db0ecda43a`): az Expressive lint-szabályok (a 3. fejezet 11. pontja) és hibamentes teljes Android lint; a futás 69 örökölt hibát talált, mind javítva.
+- **F2E:** a vékony design-system réteg (`ui/expressive/designsystem`). Az `ExpressiveMenu` csoportosított menü; szűk ablakban a csoportok sorban kapják meg a szükséges magasságot, mindegyik helyet hagy az alatta lévők első elemének, és a saját konténerén belül görget. Ezt használja a zászló-, a további műveletek és a hosszú érintés menüje. A `MediumButton` a képernyő fő művelete: a „Show answer”, a válaszgombok és a panelek első gombja. Az alpha menü- és gombméret-API-k így egy helyen változnak (a réteg szabálya a 4. fejezetben).
+- **Hátravan:** a screenshot-mátrix újrarögzítése és a G1-átadás: debug APK és az eszközön ellenőrizendő lista.
 
 **Worktree:** a Task 2–13 és az F1 munka helyi checkpoint commitokban van, push nélkül.
 
@@ -131,7 +132,7 @@ Kötelező kísérő lépések:
 
 - ~~a verzió a version catalogba kerüljön a hard-coded `build.gradle`-sorok helyett~~ – az F1-ben kész;
 - ~~a `-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi` központilag kerüljön a `build.gradle.kts:147-154` opt-in blokkba (a warnings-as-errors miatt)~~ – az F1-ben kész;
-- vékony design-system réteg (`ui/expressive/designsystem`), hogy az alpha API-változások egy helyen csapódjanak le. A téma része az F1-ben a `ui/expressive/theme` csomagba került; a komponensréteg az F2-ben, az első M3E komponensekkel együtt jön.
+- vékony design-system réteg (`ui/expressive/designsystem`), hogy az alpha API-változások egy helyen csapódjanak le – részben kész. A téma az F1-ben a `ui/expressive/theme` csomagba került; az F2E-ben a menü és a medium gomb, ahol több alpha API együtt ad ki egy mintát. Az egy hívásként használt API-k (`ButtonGroup`, `HorizontalFloatingToolbar`, `SegmentedListItem`, `LoadingIndicator`, `ButtonDefaults.shapes()`) közvetlen hívások maradnak: ha változnak, a B-út frissítésekor gépiesen cserélhetők. Egy minta akkor kerül a rétegbe, amikor egy második helyen is kell.
 
 ## 5. Terület-mátrix
 
