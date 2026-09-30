@@ -123,6 +123,10 @@ class SentenceCaseTest : RobolectricTest() {
                         TR.studyingAllBuriedCards().toSentenceCase(this, R.string.sentence_all_buried_cards),
                         equalTo("All buried cards"),
                     )
+                    assertThat(
+                        TR.emptyCardsDeleteEmptyCards().toSentenceCase(this, R.string.sentence_delete_empty_cards),
+                        equalTo("Delete empty cards"),
+                    )
 
                     assertThat("Toggle Suspend".toSentenceCase(this, R.string.sentence_toggle_suspend), equalTo("Toggle suspend"))
                     assertThat("Ook? Ook?".toSentenceCase(this, R.string.sentence_toggle_suspend), equalTo("Ook? Ook?"))

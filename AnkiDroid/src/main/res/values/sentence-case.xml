@@ -95,4 +95,5 @@ undoActionUndone()
     <string name="sentence_manually_buried_cards">Manually buried cards</string>
     <string name="sentence_buried_siblings">Buried siblings</string>
     <string name="sentence_all_buried_cards">All buried cards</string>
+    <string name="sentence_delete_empty_cards">Delete empty cards</string>
 </resources>

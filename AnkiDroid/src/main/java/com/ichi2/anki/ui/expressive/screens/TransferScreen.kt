@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveExportFormat
 import com.ichi2.anki.ui.expressive.ExpressiveExportOptions
@@ -68,9 +69,9 @@ internal fun TransferScreen(
                 Text(
                     text =
                         if (state is ExpressiveTransferUiState.ExportOptions || state is ExpressiveTransferUiState.Ready) {
-                            stringResource(R.string.expressive_export_title)
+                            TR.actionsExport()
                         } else {
-                            stringResource(R.string.expressive_import_title)
+                            TR.actionsImport()
                         },
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -159,15 +160,11 @@ private fun ImportConfirmation(
     )
     Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(48.dp)) {
         Text(
-            stringResource(
-                if (state.format ==
-                    ExpressiveImportFormat.COLPKG
-                ) {
-                    R.string.expressive_import_replace
-                } else {
-                    R.string.expressive_import_add
-                },
-            ),
+            if (state.format == ExpressiveImportFormat.COLPKG) {
+                stringResource(R.string.expressive_import_replace)
+            } else {
+                TR.actionsImport()
+            },
         )
     }
     TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(stringResource(R.string.dialog_cancel)) }
@@ -194,20 +191,20 @@ private fun ExportConfiguration(
     when (state.options.format) {
         ExpressiveExportFormat.COLPKG -> {
             Toggle(
-                stringResource(R.string.expressive_export_include_media),
+                TR.exportingIncludeMedia(),
                 state.options.withMedia,
             ) { onOptions(state.options.copy(withMedia = it)) }
             Toggle(stringResource(R.string.expressive_export_legacy), state.options.legacy) { onOptions(state.options.copy(legacy = it)) }
         }
         ExpressiveExportFormat.APKG -> {
-            Toggle(stringResource(R.string.expressive_export_include_scheduling), state.options.withScheduling) {
+            Toggle(TR.exportingIncludeSchedulingInformation(), state.options.withScheduling) {
                 onOptions(state.options.copy(withScheduling = it))
             }
             Toggle(stringResource(R.string.expressive_export_include_deck_configs), state.options.withDeckConfigs) {
                 onOptions(state.options.copy(withDeckConfigs = it))
             }
             Toggle(
-                stringResource(R.string.expressive_export_include_media),
+                TR.exportingIncludeMedia(),
                 state.options.withMedia,
             ) { onOptions(state.options.copy(withMedia = it)) }
             Toggle(stringResource(R.string.expressive_export_legacy), state.options.legacy) { onOptions(state.options.copy(legacy = it)) }
@@ -218,18 +215,18 @@ private fun ExportConfiguration(
                 state.options.withHtml,
             ) { onOptions(state.options.copy(withHtml = it)) }
             Toggle(
-                stringResource(R.string.expressive_export_include_tags),
+                TR.exportingIncludeTags(),
                 state.options.withTags,
             ) { onOptions(state.options.copy(withTags = it)) }
             Toggle(
-                stringResource(R.string.expressive_export_include_deck),
+                TR.exportingIncludeDeck(),
                 state.options.withDeck,
             ) { onOptions(state.options.copy(withDeck = it)) }
-            Toggle(stringResource(R.string.expressive_export_include_notetype), state.options.withNotetype) {
+            Toggle(TR.exportingIncludeNotetype(), state.options.withNotetype) {
                 onOptions(state.options.copy(withNotetype = it))
             }
             Toggle(
-                stringResource(R.string.expressive_export_include_guid),
+                TR.exportingIncludeGuid(),
                 state.options.withGuid,
             ) { onOptions(state.options.copy(withGuid = it)) }
         }

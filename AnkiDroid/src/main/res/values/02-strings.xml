@@ -452,19 +452,16 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="set_due_date_date_range">Date range</string>
 
     <!-- Material 3 Expressive account -->
-    <string name="expressive_account_title">AnkiWeb account</string>
     <string name="expressive_account_sign_in_heading">Sign in to AnkiWeb</string>
     <string name="expressive_account_sign_in_description">Use your AnkiWeb account to synchronize this collection. Your password is used only for this sign-in request and is never saved.</string>
-    <string name="expressive_account_sign_in_action">Sign in</string>
     <string name="expressive_account_signed_in_heading">Account connected</string>
     <string name="expressive_account_status_label">Signed in as</string>
     <string name="expressive_account_signed_in_without_identity">Signed in</string>
-    <string name="expressive_account_show_password">Show</string>
-    <string name="expressive_account_hide_password">Hide</string>
+    <string name="expressive_account_show_password">Show password</string>
+    <string name="expressive_account_hide_password">Hide password</string>
     <string name="expressive_account_forget_action">Log out on this device</string>
     <string name="expressive_account_forget_title">Log out of AnkiWeb?</string>
     <string name="expressive_account_forget_message">This removes the saved AnkiWeb credential from this device. Your AnkiWeb account and online data are not deleted.</string>
-    <string name="expressive_account_forget_confirm">Log out</string>
     <string name="expressive_account_forget_explanation">Logging out removes the local authentication key and resets media sync state.</string>
     <string name="expressive_account_error_credentials">The email address or password was not accepted.</string>
     <string name="expressive_account_error_network">Couldn’t reach AnkiWeb. Check your connection and try again.</string>
@@ -477,8 +474,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
 
     <!-- Material 3 Expressive import and export -->
     <string name="expressive_transfer_group">Transfer</string>
-    <string name="expressive_import_title">Import</string>
-    <string name="expressive_export_title">Export</string>
     <string name="expressive_import_subtitle">Add an Anki package or text file, or replace this collection</string>
     <string name="expressive_export_subtitle">Create a private copy to save or share</string>
     <string name="expressive_import_choose_file">Choose one APKG, COLPKG, CSV, TSV, or text file.</string>
@@ -486,7 +481,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_import_apkg_description">Add this package using Anki’s import defaults. Existing notes, scheduling, deck configuration, and media are handled by the backend import rules.</string>
     <string name="expressive_import_text_description">Import this text file using Anki’s detected delimiter, fields, note type, deck, HTML, and duplicate-handling defaults.</string>
     <string name="expressive_import_replace">Replace collection</string>
-    <string name="expressive_import_add">Import</string>
     <string name="expressive_import_running">Importing. Collection-backed screens may be unavailable until this finishes.</string>
     <string name="expressive_export_running">Creating export. Collection-backed screens may be unavailable for a collection package.</string>
     <string name="expressive_transfer_cancel_wait_description">Cancel requests are cooperative. AnkiDroid waits until the backend reaches a safe cleanup point.</string>
@@ -506,15 +500,9 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_export_format_apkg">Anki deck package (.apkg)</string>
     <string name="expressive_export_format_notes">Notes in plain text (.txt)</string>
     <string name="expressive_export_format_cards">Cards in plain text (.txt)</string>
-    <string name="expressive_export_include_media">Include media</string>
     <string name="expressive_export_legacy">Support older Anki versions</string>
-    <string name="expressive_export_include_scheduling">Include scheduling information</string>
     <string name="expressive_export_include_deck_configs">Include deck configurations</string>
     <string name="expressive_export_include_html">Include HTML</string>
-    <string name="expressive_export_include_tags">Include tags</string>
-    <string name="expressive_export_include_deck">Include deck name</string>
-    <string name="expressive_export_include_notetype">Include note type name</string>
-    <string name="expressive_export_include_guid">Include unique identifier</string>
     <string name="expressive_export_action">Create export</string>
     <string name="expressive_transfer_unsupported_file">This file type is not supported. Choose an APKG, COLPKG, CSV, TSV, or text file.</string>
     <string name="expressive_transfer_unsupported_database">Anki database (.anki2) files cannot be imported directly. Export a package from Anki first.</string>
@@ -528,8 +516,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_transfer_interrupted">The app process ended during this transfer. Mutating imports are never replayed automatically.</string>
 
     <!-- Expressive backup, restore, and collection maintenance -->
-    <string name="expressive_maintenance_group">Collection</string>
-    <string name="expressive_maintenance_backups_title">Backups</string>
     <string name="expressive_maintenance_backups_subtitle">Create, keep, and restore collection backups</string>
     <string name="expressive_maintenance_database_subtitle">Find and repair problems in the collection</string>
     <string name="expressive_maintenance_empty_cards_subtitle">Remove cards whose templates produce nothing</string>
@@ -547,7 +533,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_maintenance_database_description">Checks the collection for problems, repairs what it can, and then rebuilds and optimizes the database. This cannot be stopped once it starts.</string>
     <string name="expressive_maintenance_empty_cards_description">Finds cards whose front side is empty because of their note\'s content or card template.</string>
     <string name="expressive_maintenance_find_empty_cards">Find empty cards</string>
-    <string name="expressive_maintenance_delete_empty_cards">Delete empty cards</string>
     <string name="expressive_maintenance_media_description">Compares the media folder with your notes to find missing and unused files.</string>
     <string name="expressive_maintenance_rebuild_media">Rebuild media database</string>
     <string name="expressive_maintenance_rebuild_media_message">The media database is recreated on the next media sync. Media files and notes are not deleted, but the next media sync may take longer.</string>
@@ -563,7 +548,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_maintenance_working">Working…</string>
     <string name="expressive_maintenance_keep_open">This step cannot be stopped. Keep the app open until it has finished.</string>
     <string name="expressive_maintenance_progress_counter">%1$d of %2$d</string>
-    <string name="expressive_maintenance_backup_created">Backup created.</string>
     <string name="expressive_maintenance_backup_unchanged">No changes since the latest backup.</string>
     <string name="expressive_maintenance_backup_deleted">Backup deleted.</string>
     <string name="expressive_maintenance_settings_saved">Backup settings saved.</string>

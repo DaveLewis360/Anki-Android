@@ -40,11 +40,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ichi2.anki.AnkiDroidApp
+import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveAccountUiState
 import com.ichi2.anki.ui.expressive.ExpressiveMaintenanceMode
 import com.ichi2.anki.ui.expressive.ExpressiveSyncUiState
 import com.ichi2.anki.ui.expressive.isCollectionBlocking
+import com.ichi2.anki.ui.internationalization.SentenceCase
 
 private enum class MoreAction {
     IMPORT,
@@ -120,22 +122,22 @@ fun MoreScreen(
             stringResource(R.string.expressive_transfer_group) to
                 listOf(
                     MoreItem(
-                        stringResource(R.string.expressive_import_title),
+                        TR.actionsImport(),
                         stringResource(R.string.expressive_import_subtitle),
                         R.drawable.ic_sync,
                         MoreAction.IMPORT,
                     ),
                     MoreItem(
-                        stringResource(R.string.expressive_export_title),
+                        TR.actionsExport(),
                         stringResource(R.string.expressive_export_subtitle),
                         R.drawable.ic_sync,
                         MoreAction.EXPORT,
                     ),
                 ),
-            stringResource(R.string.expressive_maintenance_group) to
+            TR.exportingCollection() to
                 listOf(
                     MoreItem(
-                        stringResource(R.string.expressive_maintenance_backups_title),
+                        TR.preferencesBackups(),
                         stringResource(R.string.expressive_maintenance_backups_subtitle),
                         R.drawable.ic_baseline_backup_24,
                         MoreAction.BACKUPS,
@@ -163,7 +165,7 @@ fun MoreScreen(
                 listOf(
                     MoreItem("Settings", "All application preferences", R.drawable.ic_settings_black, MoreAction.SETTINGS),
                     MoreItem(
-                        stringResource(R.string.expressive_account_title),
+                        with(LocalContext.current) { SentenceCase.ankiWebAccount },
                         accountSubtitle,
                         R.drawable.ic_sync,
                         MoreAction.ACCOUNT,

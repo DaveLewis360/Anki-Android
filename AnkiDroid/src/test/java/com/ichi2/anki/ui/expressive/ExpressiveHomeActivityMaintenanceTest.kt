@@ -66,6 +66,10 @@ class ExpressiveHomeActivityMaintenanceTest : RobolectricTest() {
                     .start()
                     .resume()
             val activity = controller.get()
+            // Sync starts out checking, which counts as a collection sync: settle it, or the check may be refused.
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                withTimeout(5_000) { activity.syncForTesting.state.first { it !is ExpressiveSyncUiState.Checking } }
+            }
             val maintenance = activity.maintenanceForTesting
             if (maintenance.state.value is ExpressiveMaintenanceUiState.Idle) maintenance.open(route.mode)
             runCurrent()

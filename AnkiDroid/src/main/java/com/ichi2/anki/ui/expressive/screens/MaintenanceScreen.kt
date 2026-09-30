@@ -378,7 +378,10 @@ private fun EmptyCardsResult(
         Text(remember { TR.emptyCardsPreserveNotesCheckbox() }, Modifier.weight(1f))
         Switch(checked = preserveNotes, onCheckedChange = null)
     }
-    PrimaryAction(stringResource(R.string.expressive_maintenance_delete_empty_cards)) { onDelete(preserveNotes) }
+    val context = LocalContext.current
+    val deleteEmptyCards =
+        remember(context) { TR.emptyCardsDeleteEmptyCards().toSentenceCase(context, R.string.sentence_delete_empty_cards) }
+    PrimaryAction(deleteEmptyCards) { onDelete(preserveNotes) }
     SecondaryAction(stringResource(R.string.dialog_cancel), onDone)
     if (state.report.isNotBlank()) {
         HorizontalDivider()
@@ -511,7 +514,7 @@ private fun SecondaryAction(
 
 internal fun ExpressiveMaintenanceMode.title(context: Context): String =
     when (this) {
-        ExpressiveMaintenanceMode.BACKUPS -> context.getString(R.string.expressive_maintenance_backups_title)
+        ExpressiveMaintenanceMode.BACKUPS -> TR.preferencesBackups()
         ExpressiveMaintenanceMode.DATABASE -> TR.databaseCheckTitle().toSentenceCase(context, R.string.sentence_check_db)
         ExpressiveMaintenanceMode.EMPTY_CARDS -> TR.emptyCardsWindowTitle().toSentenceCase(context, R.string.sentence_empty_cards)
         ExpressiveMaintenanceMode.MEDIA -> TR.mediaCheckWindowTitle().toSentenceCase(context, R.string.sentence_check_media)
@@ -546,7 +549,7 @@ private fun ExpressiveMaintenanceUiState.Terminal.successText(context: Context):
             if (affectedCount == 0) {
                 context.getString(R.string.expressive_maintenance_backup_unchanged)
             } else {
-                context.getString(R.string.expressive_maintenance_backup_created)
+                TR.profilesBackupCreated()
             }
         ExpressiveMaintenanceOperation.DELETE_BACKUP -> context.getString(R.string.expressive_maintenance_backup_deleted)
         ExpressiveMaintenanceOperation.UPDATE_RETENTION -> context.getString(R.string.expressive_maintenance_settings_saved)

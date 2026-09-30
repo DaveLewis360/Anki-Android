@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -52,9 +53,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveAccountError
 import com.ichi2.anki.ui.expressive.ExpressiveAccountUiState
+import com.ichi2.anki.ui.internationalization.SentenceCase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +74,7 @@ internal fun AccountScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.expressive_account_title)) },
+                title = { Text(with(LocalContext.current) { SentenceCase.ankiWebAccount }) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -107,7 +110,7 @@ internal fun AccountScreen(
             text = { Text(stringResource(R.string.expressive_account_forget_message)) },
             confirmButton = {
                 TextButton(onClick = onConfirmForget) {
-                    Text(stringResource(R.string.expressive_account_forget_confirm))
+                    Text(with(LocalContext.current) { SentenceCase.logOut })
                 }
             },
             dismissButton = {
@@ -179,16 +182,12 @@ private fun SignedOutAccountContent(
                 },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
-                TextButton(onClick = { passwordVisible = !passwordVisible }, enabled = !state.busy) {
-                    Text(
-                        stringResource(
-                            if (passwordVisible) {
-                                R.string.expressive_account_hide_password
-                            } else {
-                                R.string.expressive_account_show_password
-                            },
-                        ),
-                    )
+                IconToggleButton(checked = passwordVisible, onCheckedChange = { passwordVisible = it }, enabled = !state.busy) {
+                    if (passwordVisible) {
+                        Icon(painterResource(R.drawable.ic_visibility_off), stringResource(R.string.expressive_account_hide_password))
+                    } else {
+                        Icon(painterResource(R.drawable.ic_remove_red_eye_white), stringResource(R.string.expressive_account_show_password))
+                    }
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -211,7 +210,7 @@ private fun SignedOutAccountContent(
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
             } else {
-                Text(stringResource(R.string.expressive_account_sign_in_action))
+                Text(TR.syncSignIn())
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
