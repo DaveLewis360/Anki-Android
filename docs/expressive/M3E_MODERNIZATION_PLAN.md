@@ -1,6 +1,6 @@
 # Material 3 Expressive modernizáció – megvalósíthatósági terv
 
-**Státusz:** elfogadva (D0–D8, 7. fejezet); az F0 és az F1 kész, az F2 következik.
+**Státusz:** elfogadva (D0–D8, 7. fejezet); az F0 és az F1 kész, az F2 folyamatban (az F2A–F2D kész).
 **Alap:** read-only kódbázis-audit kilenc subagent-feladattal (Expressive alapok és képernyők, Classic UI és runtime-utak, WebView-oldalak, build/függőségek/tesztek, akadálymentesség/lokalizáció/reszponzivitás), közvetlen dokumentum- és worktree-ellenőrzés, valamint a Google Maven AAR-metaadatainak lekérdezése. Az 1., 4. és 5. fejezet számai és „jelenlegi” állapotai az audit idejére, az F1 előtti `feature/p0-foundation` worktree-re vonatkoznak; az azóta elért állapotot a 2. fejezet írja le.
 
 ## 1. Verdikt
@@ -25,7 +25,7 @@
 - **Visszaállítás:** izolált staging és validálás még a megerősítés előtt. Utána mindig új biztonsági mentés készül, az adatbázis journalozott cserével kerül a helyére, és rollback történik, ha nem nyílik meg. A média Anki-szemantikával olvad be; ami nem mozdítható, karanténba kerül, és a Backups képernyőn újra hozzáadható vagy törölhető.
 - **Sync-kizárás:** a gyűjtemény- és a médiaszinkron külön kezelt, a csak várakozó médiaszinkron semmit nem blokkol, a backend saját állapotát a collection-sorban is újraellenőrizzük.
 - **Bizonyíték:** 32 gateway-teszt valódi backenddel (összeomlás minden journal-fázisban, rollback-hiba, karantén, elárvult staging), 29 coordinator- és 6 Activity-teszt, ktlint zöld.
-- **Részben nyitott:** a Maintenance TalkBack-szemantikáját az F1 óta 5 Compose UI-teszt fedi. Az automatikus backupot indító resume-effekt Compose-szintű tesztje és az Android lint futtatása még hátravan.
+- **Részben nyitott:** a Maintenance TalkBack-szemantikáját az F1 óta 5 Compose UI-teszt fedi. Az automatikus backupot indító resume-effekt Compose-szintű tesztje még hátravan; a teljes Android lint az F2D óta hibamentes.
 
 **Az F1 (toolchain és design-system alap) kész**, két review-kör és két delta-review után `APPROVED` (`semantic-review/2026-09-29-190247-pr-0.md` és a későbbi delta-review-k):
 
@@ -44,6 +44,15 @@
   - a dinamikus szín csak eszközön ellenőrizhető, mert Robolectricben nincs háttérkép-szín;
   - a teljes unit-tesztcsomag futtatása a B-út spike-jával együtt; az `ExistingProfileMigrationActivity`-nek nincs tesztje, az alpha18-on csak a fordítása ellenőrzött;
   - ~~**külön javításként, az F2 előtt:** a `Themes.setTheme(activity, …)` sorrendhibája (29edb22b3a)~~ – külön commitban javítva: a launcher-splash felismerése újra a manifest-téma alapján történik, a dinamikus szín pedig mindig a paletta után kerül fel, a párbeszédablakok újratémázásakor is. A paletta a `PrefsRepository`-n át olvasódik, így a backupból visszaállított, inicializálatlan app útja sem omlik össze.
+
+**Az F2 (a tanulás képernyő vertikális szelete) folyamatban**, minden rész semantic review-val jóváhagyva:
+
+- **F2A** (`3dfe04c14b`): a kártyasablon úgy jelenik meg, ahogy a Classic reviewerben: nincsenek kényszerített `!important`-színek és a kártya DOM-ját mozgató CSS-animációk. A kártyaváltás a kártyapanel dolga lett, a téma motion scheme-jével; kikapcsolt rendszeranimációknál semmi sem mozog.
+- **F2B** (`8fd196ea76`): M3E chrome. `Scaffold` + TopAppBar alcímmel és wavy haladásjelzővel, `HorizontalFloatingToolbar` a kártyaműveletekhez, `ButtonGroup` válaszgombok intervallummal, medium „Show answer”, csoportosított és görgethető menük, haptika; rövid, széles ablakban a vezérlők egy sorba kerülnek.
+- **F2C** (`6dc0e09204`): a töltés-, hiba- és gratulációs panel, valamint a timebox-, unbury- és custom study párbeszédablak az Anki saját szövegeivel (`TR`) és `MaterialShapes`-jelvényekkel.
+- **Fordítás** (`394b040a6a`): 16 string, amely `TR`-fordítást duplikált, most a `TR`-ből jön.
+- **F2D:** az Expressive lint-szabályok (a 3. fejezet 11. pontja) és hibamentes teljes Android lint; a futás 69 örökölt hibát talált, mind javítva.
+- **Hátravan:** az F2E (a vékony design-system réteg), a screenshot-mátrix újrarögzítése és a G1-átadás: debug APK és az eszközön ellenőrizendő lista.
 
 **Worktree:** a Task 2–13 és az F1 munka helyi checkpoint commitokban van, push nélkül.
 
@@ -101,6 +110,9 @@ Egy képernyő akkor M3E-kész, ha az alábbiak mind teljesülnek:
     - Compose UI-teszt a kulcsfolyamatokra;
     - tulajdonosi vizuális jóváhagyás referencia-eszközön.
 11. **Kikényszerítés:** egyedi lint-szabályok a meglévő `:lint-rules` modulban a `ui/expressive` csomagra. Tiltott: `indication = null`, `Color(0x` a témán kívül, `Text("…")` literál, `CircularProgressIndicator`, nyers `tween(` komponensmozgásra, szerep nélküli `clickable`.
+    - Az F2D óta az `ExpressiveDesignDetector` hibaként jelzi ezeket. A szövegszabály a `Text` mellett az `Icon`/`Image` `contentDescription`-jét, a `showSnackbar` üzenetét és gombfeliratát, a `clickable` click labeljeit, valamint az `if`, `when` és elvis ágait is nézi.
+    - A lint nem látja a képernyőn kívül, például view modelben összeállított szövegeket (`ExpressiveBrowseViewModel.kt:340`), sem a `semantics {}` blokkban beállítottakat: ezek review-tételek.
+    - A szabályok előtti sértéseket fájlonkénti `<ignore>`-lista mentesíti (`lint-release.xml`). Egy fájl akkor kerül le róla, amikor a képernyője migrál (F3: a shell, Home és Browse; F4: More, Settings és Stats); új fájl nem kerülhet fel.
 
 ## 4. Könyvtár- és toolchain-kapu (ellenőrzött tények)
 

@@ -467,4 +467,32 @@
 
     <!-- PERF: Could improve by not using notifyDataSetChanged() -->
     <issue id="NotifyDataSetChanged" severity="ignore" />
+
+    <!--
+    Material 3 Expressive design checks (lint-rules: ExpressiveDesignDetector), for the
+    com.ichi2.anki.ui.expressive package. The Study screen and the files written or migrated since
+    are clean. The files listed below predate the checks: each entry goes when its screen is
+    migrated (docs/expressive/M3E_MODERNIZATION_PLAN.md: F3 shell, Home and Browse; F4 More,
+    Settings, and Stats). Do not add files to these lists.
+    -->
+    <issue id="ExpressiveHardcodedText">
+        <ignore regexp="ui/expressive/screens/(HomeScreen|BrowseScreen|MoreScreen|StatsScreen|SettingsScreen)\.kt" />
+        <ignore regexp="ui/expressive/components/HomeComponents\.kt" />
+    </issue>
+    <issue id="ExpressiveRawTween">
+        <ignore regexp="ui/expressive/ExpressiveApp\.kt" />
+        <ignore regexp="ui/expressive/screens/StatsScreen\.kt" />
+        <ignore regexp="ui/expressive/components/ExpressiveBottomBar\.kt" />
+    </issue>
+    <issue id="ExpressiveIndicationNull">
+        <ignore regexp="ui/expressive/screens/(MoreScreen|SettingsScreen)\.kt" />
+        <ignore regexp="ui/expressive/components/(HomeComponents|ExpressiveBottomBar)\.kt" />
+    </issue>
+    <issue id="ExpressiveClickableWithoutRole">
+        <ignore regexp="ui/expressive/screens/(BrowseScreen|MoreScreen|SettingsScreen)\.kt" />
+        <ignore regexp="ui/expressive/components/(HomeComponents|ExpressiveBottomBar)\.kt" />
+    </issue>
+    <issue id="ExpressiveColorLiteral">
+        <ignore regexp="ui/expressive/screens/(BrowseScreen|StatsScreen)\.kt" />
+    </issue>
 </lint>

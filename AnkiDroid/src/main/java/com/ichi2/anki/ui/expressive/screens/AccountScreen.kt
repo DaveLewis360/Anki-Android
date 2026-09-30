@@ -3,7 +3,6 @@
 package com.ichi2.anki.ui.expressive.screens
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +18,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -53,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveAccountError
@@ -131,6 +131,8 @@ private fun SignedOutAccountContent(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val registerUrl = stringResource(R.string.register_url)
+    val resetPasswordUrl = stringResource(R.string.resetpw_url)
     val passwordFocus = remember { FocusRequester() }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     Column(
@@ -204,11 +206,7 @@ private fun SignedOutAccountContent(
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             if (state.signingIn) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
+                LoadingIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
                 Text(TR.syncSignIn())
             }
@@ -216,7 +214,7 @@ private fun SignedOutAccountContent(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(
                 onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(context.getString(R.string.register_url))))
+                    context.startActivity(Intent(Intent.ACTION_VIEW, registerUrl.toUri()))
                 },
                 enabled = !state.busy,
             ) {
@@ -224,7 +222,7 @@ private fun SignedOutAccountContent(
             }
             TextButton(
                 onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(context.getString(R.string.resetpw_url))))
+                    context.startActivity(Intent(Intent.ACTION_VIEW, resetPasswordUrl.toUri()))
                 },
                 enabled = !state.busy,
             ) {
@@ -279,11 +277,7 @@ private fun SignedInAccountContent(
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             if (state.forgetting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
+                LoadingIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
                 Text(stringResource(R.string.expressive_account_forget_action))
             }

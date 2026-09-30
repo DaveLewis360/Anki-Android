@@ -26,9 +26,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -157,7 +157,7 @@ fun BrowseScreen(
                 state.loading && state.rows.isEmpty() ->
                     item {
                         Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                            LoadingIndicator()
                         }
                     }
                 state.rows.isEmpty() && state.error == null ->
@@ -198,7 +198,7 @@ fun BrowseScreen(
             }
         }
         if (state.working) {
-            CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(24.dp))
+            LoadingIndicator(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(24.dp))
         }
         SnackbarHost(
             hostState = snackbarHostState,

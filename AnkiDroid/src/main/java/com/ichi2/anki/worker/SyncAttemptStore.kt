@@ -65,6 +65,8 @@ internal data class SyncAttemptRecord(
  * confirms their collection request exists; only then are they atomically promoted to accepted.
  * Credentials remain exclusively in SyncCredentialStore and are resolved by generation.
  */
+// Every write is committed and its result checked: the KTX edit {} would drop the result.
+@Suppress("UseKtx")
 internal object SyncAttemptStore {
     private const val PREFERENCES = "durable-sync-attempt-v1"
     private const val PENDING_PREFIX = "pending."

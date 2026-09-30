@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2026 AnkiDroid M3 Expressive contributors
 package com.ichi2.anki.ui.expressive.screens
 
-import android.net.Uri
+import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import com.ichi2.anki.ui.expressive.EXPRESSIVE_ANDROID_ASSET_ORIGIN
 import com.ichi2.anki.ui.expressive.EXPRESSIVE_CARD_ORIGIN
 import com.ichi2.anki.ui.expressive.mediaDirectoryBaseUrl
@@ -131,7 +133,7 @@ class ExpressiveCardWebViewTest {
             )
 
         for ((url, expected) in cases) {
-            assertThat(url, cardNavigationAction(Uri.parse(url)), equalTo(expected))
+            assertThat(url, cardNavigationAction(url.toUri()), equalTo(expected))
         }
     }
 
@@ -186,6 +188,8 @@ class ExpressiveCardWebViewTest {
     }
 
     @Test
+    // WebView.getWebViewClient is API 26.
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     fun `Android assets are served only through the safe asset path`() {
         val holder =
             createExpressiveCardWebViewHolder(
@@ -328,7 +332,7 @@ class ExpressiveCardWebViewTest {
         method: String? = null,
     ): WebResourceRequest =
         mock(WebResourceRequest::class.java).also {
-            `when`(it.url).thenReturn(Uri.parse(url))
+            `when`(it.url).thenReturn(url.toUri())
             method?.let { value -> `when`(it.method).thenReturn(value) }
         }
 

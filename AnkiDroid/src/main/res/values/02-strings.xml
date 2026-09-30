@@ -480,7 +480,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_import_collection_destructive">This replaces the entire collection on this device. A malformed or incorrect package can make local data unavailable. The collection is closed only while replacement is running.</string>
     <string name="expressive_import_apkg_description">Add this package using Anki’s import defaults. Existing notes, scheduling, deck configuration, and media are handled by the backend import rules.</string>
     <string name="expressive_import_text_description">Import this text file using Anki’s detected delimiter, fields, note type, deck, HTML, and duplicate-handling defaults.</string>
-    <string name="expressive_import_replace">Replace collection</string>
     <string name="expressive_import_running">Importing. Collection-backed screens may be unavailable until this finishes.</string>
     <string name="expressive_export_running">Creating export. Collection-backed screens may be unavailable for a collection package.</string>
     <string name="expressive_transfer_cancel_wait_description">Cancel requests are cooperative. AnkiDroid waits until the backend reaches a safe cleanup point.</string>
@@ -547,7 +546,6 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_maintenance_finding_empty_cards">Searching for empty cards…</string>
     <string name="expressive_maintenance_working">Working…</string>
     <string name="expressive_maintenance_keep_open">This step cannot be stopped. Keep the app open until it has finished.</string>
-    <string name="expressive_maintenance_progress_counter">%1$d of %2$d</string>
     <string name="expressive_maintenance_backup_unchanged">No changes since the latest backup.</string>
     <string name="expressive_maintenance_backup_deleted">Backup deleted.</string>
     <string name="expressive_maintenance_settings_saved">Backup settings saved.</string>
@@ -612,7 +610,7 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_study_more_card_actions" maxLength="41" comment="Description of the button that opens the burying and suspending actions for the current card">More card actions</string>
     <string name="expressive_study_answer_with_interval" comment="Spoken label of an answer button. %1$s is the rating, for example Good, and %2$s is when the card would be shown next, for example 10m">%1$s, %2$s</string>
     <string name="expressive_study_back_to_decks" maxLength="41" comment="Button on the study screen once a deck is finished: goes back to the list of decks">Back to decks</string>
-    <string name="expressive_study_error_title" comment="Heading of the study screen when studying cannot go on; the reason follows below it">Something went wrong</string>
+    <string name="expressive_study_error_title" comment="Heading of the study screen when studying cannot go on; the reason follows below it">Can’t continue studying</string>
     <string name="expressive_study_card_renderer_error" comment="Message when the card could not be displayed. %s is the technical reason">The card could not be shown: %s</string>
     <string name="expressive_study_tts_voices_unavailable">Text-to-speech voices can’t be opened here</string>
     <string name="expressive_study_unsupported_card_signal" comment="Message when a card template asks the study screen for a feature it does not have">This card asked for a study screen feature that isn’t supported</string>

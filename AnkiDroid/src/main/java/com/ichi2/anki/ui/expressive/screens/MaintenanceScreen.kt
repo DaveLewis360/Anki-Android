@@ -17,11 +17,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -276,13 +277,13 @@ private fun RetentionEditor(
     val intervalRange = ExpressiveBackupLimits.MINIMUM_INTERVAL_RANGE
     val retainedRange = ExpressiveBackupLimits.RETAINED_RANGE
     val parsedInterval =
-        NumberField(stringResource(R.string.pref__minutes_between_automatic_backups__title), interval, intervalRange) {
+        numberField(stringResource(R.string.pref__minutes_between_automatic_backups__title), interval, intervalRange) {
             interval = it
         }
     SectionHeading(stringResource(R.string.backup_limits_lifetime))
-    val parsedDaily = NumberField(stringResource(R.string.pref__daily_backups_to_keep__title), daily, retainedRange) { daily = it }
-    val parsedWeekly = NumberField(stringResource(R.string.pref__weekly_backups_to_keep__title), weekly, retainedRange) { weekly = it }
-    val parsedMonthly = NumberField(stringResource(R.string.pref__monthly_backups_to_keep__title), monthly, retainedRange) { monthly = it }
+    val parsedDaily = numberField(stringResource(R.string.pref__daily_backups_to_keep__title), daily, retainedRange) { daily = it }
+    val parsedWeekly = numberField(stringResource(R.string.pref__weekly_backups_to_keep__title), weekly, retainedRange) { weekly = it }
+    val parsedMonthly = numberField(stringResource(R.string.pref__monthly_backups_to_keep__title), monthly, retainedRange) { monthly = it }
     val updated =
         if (parsedInterval != null && parsedDaily != null && parsedWeekly != null && parsedMonthly != null) {
             ExpressiveBackupLimits(parsedInterval, parsedDaily, parsedWeekly, parsedMonthly)
@@ -298,7 +299,7 @@ private fun RetentionEditor(
 
 /** Returns the parsed value when it is inside [range]. */
 @Composable
-private fun NumberField(
+private fun numberField(
     label: String,
     value: String,
     range: IntRange,
@@ -471,14 +472,14 @@ private fun Progress(
     val total = progress?.total ?: 0
     if (total > 0) {
         val fraction = (progress?.current ?: 0).coerceIn(0, total).toFloat() / total
-        CircularProgressIndicator(progress = { fraction })
+        CircularWavyProgressIndicator(progress = { fraction })
     } else {
-        CircularProgressIndicator()
+        LoadingIndicator()
     }
     StatusText(announcement)
     if (total > 0) {
         Text(
-            stringResource(R.string.expressive_maintenance_progress_counter, progress?.current ?: 0, total),
+            stringResource(R.string.preview_progress_bar_text, progress?.current ?: 0, total),
             style = MaterialTheme.typography.bodyMedium,
         )
     }

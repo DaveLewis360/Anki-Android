@@ -4,7 +4,7 @@ package com.ichi2.anki.ui.expressive
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -583,7 +583,7 @@ class ExpressiveMaintenanceCoordinatorTest : RobolectricTest() {
             val gateway = FakeMaintenanceGateway(prepareGate = CompletableDeferred())
             val handle = SavedStateHandle()
             val coordinator = coordinator(handle, gateway)
-            val uri = Uri.parse("content://com.example.documents/private/Secret%20collection.colpkg")
+            val uri = "content://com.example.documents/private/Secret%20collection.colpkg".toUri()
             shadowOf(context.contentResolver).registerInputStream(uri, ByteArrayInputStream(byteArrayOf(1, 2, 3)))
             coordinator.open(ExpressiveMaintenanceMode.BACKUPS)
             runCurrent()

@@ -201,7 +201,7 @@
         <item>@string/theme_dark_value</item>
     </string-array>
 
-    <string name="color_palette_title">Color palette</string>
+    <string name="color_palette_title" maxLength="41">Color palette</string>
     <string name="color_palette_summary">Accent colors for the Material 3 theme</string>
     <string name="color_palette_blue_value">blue</string>
     <string name="color_palette_violet_value">violet</string>

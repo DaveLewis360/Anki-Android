@@ -147,7 +147,7 @@
         <item name="overflowAndPopupMenuIconColor">#9e000000</item>
         <!-- StatusBar -->
         <item name="android:statusBarColor">@color/m3_surface_container_high_light</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <item name="android:windowLightStatusBar">true</item>
         <!-- Navbar -->
         <item name="android:navigationBarColor">@color/semi_transparent_black</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>

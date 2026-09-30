@@ -386,7 +386,8 @@ class ExpressiveMaintenanceGatewayTest : RobolectricTest() {
             CollectionManager.expressiveRestorePhaseHookForTesting = null
             assertFalse(File(mediaFolder, "restored.png").exists(), "the merge had not started")
             CollectionManager.ensureClosed()
-            col.noteCount()
+            // Opening the collection again resumes the interrupted merge.
+            assertTrue(col.noteCount() >= 0)
 
             assertEquals("restored", File(mediaFolder, "restored.png").readText())
             assertNoRestoreArtifacts()

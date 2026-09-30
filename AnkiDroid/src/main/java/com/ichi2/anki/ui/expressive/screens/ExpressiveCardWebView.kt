@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.core.net.toUri
 import com.ichi2.anki.ViewerResourceHandler
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.ui.expressive.EXPRESSIVE_CARD_ORIGIN_HOST
@@ -83,8 +84,8 @@ internal fun expressiveDocumentUrl(
     baseUrl: String,
     renderToken: Long,
 ): String =
-    Uri
-        .parse(baseUrl)
+    baseUrl
+        .toUri()
         .buildUpon()
         .appendQueryParameter(EXPRESSIVE_RENDER_QUERY, renderToken.toString())
         .build()
@@ -197,7 +198,7 @@ internal fun internalNavigationRenderToken(uri: Uri): Long? =
         .substringBefore('&')
         .toLongOrNull()
 
-internal fun Uri.withoutExpressiveRenderToken(): Uri = Uri.parse(toString().substringBefore("?$EXPRESSIVE_RENDER_QUERY="))
+internal fun Uri.withoutExpressiveRenderToken(): Uri = toString().substringBefore("?$EXPRESSIVE_RENDER_QUERY=").toUri()
 
 @Suppress("DEPRECATION")
 internal fun cardGestureBlockedForHitTest(type: Int): Boolean =
@@ -444,7 +445,7 @@ internal class ExpressiveCardWebViewClient(
         view: WebView,
         url: String,
     ): Boolean {
-        handleNavigation(Uri.parse(url), isForMainFrame = true)
+        handleNavigation(url.toUri(), isForMainFrame = true)
         return true
     }
 

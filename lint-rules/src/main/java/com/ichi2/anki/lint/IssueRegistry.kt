@@ -16,6 +16,7 @@ import com.ichi2.anki.lint.rules.DirectSystemCurrentTimeMillisUsage
 import com.ichi2.anki.lint.rules.DirectSystemTimeInstantiation
 import com.ichi2.anki.lint.rules.DirectToastMakeTextUsage
 import com.ichi2.anki.lint.rules.DuplicateCrowdInStrings
+import com.ichi2.anki.lint.rules.ExpressiveDesignDetector
 import com.ichi2.anki.lint.rules.FixedPreferencesTitleLength
 import com.ichi2.anki.lint.rules.HardcodedPreferenceKey
 import com.ichi2.anki.lint.rules.InvalidStringFormatDetector
@@ -61,7 +62,7 @@ class IssueRegistry : IssueRegistry() {
                 VariableNamingDetector.ISSUE,
                 InvalidStringFormatDetector.ISSUE,
                 AvoidAlertDialogUsage.ISSUE,
-            )
+            ) + ExpressiveDesignDetector.ISSUES
         }
     override val api: Int
         get() = CURRENT_API

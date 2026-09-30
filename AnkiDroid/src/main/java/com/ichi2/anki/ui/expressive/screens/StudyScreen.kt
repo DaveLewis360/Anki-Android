@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.LayoutDirection
@@ -116,6 +117,8 @@ fun StudyScreen(
     deckGateway: ExpressiveDeckGateway = ExpressiveCollection,
 ) {
     val context = LocalContext.current
+    // Messages built in callbacks: the resources follow the screen's configuration.
+    val resources = LocalResources.current
     val viewModel: StudyViewModel = viewModel(factory = StudyViewModel.factory(studyGateway))
 
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -170,13 +173,13 @@ fun StudyScreen(
             }
         }
     val mediaController =
-        remember(context, coroutineScope, snackbarHostState) {
+        remember(context, resources, coroutineScope, snackbarHostState) {
             ExpressiveReviewerMediaController(
                 javascriptEvaluator = { script -> webViewHolder.get()?.evaluateJavascript(script) },
                 scope = coroutineScope,
                 onMediaError = { filename ->
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar(context.getString(R.string.card_viewer_could_not_find_image, filename))
+                        snackbarHostState.showSnackbar(resources.getString(R.string.card_viewer_could_not_find_image, filename))
                     }
                 },
                 onTtsError = { error ->
@@ -186,7 +189,7 @@ fun StudyScreen(
                     val activity = context.findFragmentActivity()
                     if (activity == null) {
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_tts_voices_unavailable))
+                            snackbarHostState.showSnackbar(resources.getString(R.string.expressive_study_tts_voices_unavailable))
                         }
                     } else {
                         TtsVoicesDialogFragment().show(activity.supportFragmentManager, "ttsVoices")
@@ -223,7 +226,7 @@ fun StudyScreen(
                 if (!unsupportedSignalShown) {
                     unsupportedSignalShown = true
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_unsupported_card_signal))
+                        snackbarHostState.showSnackbar(resources.getString(R.string.expressive_study_unsupported_card_signal))
                     }
                 }
             }
@@ -244,7 +247,7 @@ fun StudyScreen(
     }
 
     val cardWebViewHolder =
-        remember(context, rendererGeneration, appPermissions, mediaController) {
+        remember(context, resources, rendererGeneration, appPermissions, mediaController) {
             createExpressiveCardWebViewHolder(
                 context = context,
                 onOpenExternal = { uri ->
@@ -262,13 +265,13 @@ fun StudyScreen(
                         )
                     }
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_card_renderer_error, message))
+                        snackbarHostState.showSnackbar(resources.getString(R.string.expressive_study_card_renderer_error, message))
                     }
                 },
                 onLocalResourceError = { uri ->
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar(
-                            context.getString(R.string.card_viewer_could_not_find_image, uri.lastPathSegment.orEmpty()),
+                            resources.getString(R.string.card_viewer_could_not_find_image, uri.lastPathSegment.orEmpty()),
                         )
                     }
                 },
@@ -687,7 +690,7 @@ fun StudyScreen(
                     coroutineScope.launch {
                         val session = deckGateway.loadDecks().findDeckById(sessionDeckId)
                         if (session == null) {
-                            snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_custom_study_not_opened))
+                            snackbarHostState.showSnackbar(resources.getString(R.string.expressive_study_custom_study_not_opened))
                         } else {
                             onOpenStudy(session.did, session.name)
                         }
@@ -710,10 +713,10 @@ fun StudyScreen(
     missingUserAction?.let { actionNumber ->
         AlertDialog(
             onDismissRequest = { missingUserAction = null },
-            text = { Text(context.getString(R.string.missing_user_action_dialog_message, actionNumber)) },
+            text = { Text(stringResource(R.string.missing_user_action_dialog_message, actionNumber)) },
             confirmButton = {
                 TextButton(onClick = { missingUserAction = null }) {
-                    Text(context.getString(R.string.dialog_ok))
+                    Text(stringResource(R.string.dialog_ok))
                 }
             },
             dismissButton = {
@@ -723,7 +726,7 @@ fun StudyScreen(
                         context.openUrl(R.string.link_user_actions_help)
                     },
                 ) {
-                    Text(context.getString(R.string.help))
+                    Text(stringResource(R.string.help))
                 }
             },
         )

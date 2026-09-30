@@ -3,7 +3,6 @@
 package com.ichi2.anki.ui.expressive.screens
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -39,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.ichi2.anki.AnkiDroidApp
 import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.R
@@ -340,9 +340,9 @@ private fun SupportDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val entries =
         listOf(
-            "Donate (OpenCollective)" to context.getString(R.string.link_opencollective_donate),
-            "Translate" to context.getString(R.string.link_translation),
-            "Contribute code" to context.getString(R.string.link_contribution),
+            "Donate (OpenCollective)" to stringResource(R.string.link_opencollective_donate),
+            "Translate" to stringResource(R.string.link_translation),
+            "Contribute code" to stringResource(R.string.link_contribution),
         )
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -359,7 +359,7 @@ private fun SupportDialog(onDismiss: () -> Unit) {
                                 .fillMaxWidth()
                                 .clickable {
                                     context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                                        Intent(Intent.ACTION_VIEW, url.toUri()),
                                     )
                                 }.padding(vertical = 10.dp),
                     )
@@ -379,9 +379,9 @@ private fun HelpDialog(onDismiss: () -> Unit) {
     val entries =
         listOf(
             "AnkiDroid manual" to AnkiDroidApp.manualUrl,
-            "Anki manual" to context.getString(R.string.link_anki_manual),
-            "AnkiDroid FAQ" to context.getString(R.string.link_ankidroid_faq),
-            "Community forums" to context.getString(R.string.link_forum),
+            "Anki manual" to stringResource(R.string.link_anki_manual),
+            "AnkiDroid FAQ" to stringResource(R.string.link_ankidroid_faq),
+            "Community forums" to stringResource(R.string.link_forum),
             "Report a bug" to AnkiDroidApp.feedbackUrl,
         )
     AlertDialog(
@@ -399,7 +399,7 @@ private fun HelpDialog(onDismiss: () -> Unit) {
                                 .fillMaxWidth()
                                 .clickable {
                                     context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                                        Intent(Intent.ACTION_VIEW, url.toUri()),
                                     )
                                 }.padding(vertical = 10.dp),
                     )

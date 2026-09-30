@@ -21,8 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,7 +40,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.os.ConfigurationCompat
 import com.ichi2.anki.R
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
 import com.ichi2.anki.ui.expressive.ExpressiveStats
@@ -114,7 +113,7 @@ fun StatsScreen(
                 )
             s == null ->
                 Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             else -> {
                 HeroRow(s, animateIn)
@@ -240,7 +239,7 @@ private fun WeekChartCard(
 ) {
     val todayIndex = s.dailyReviews.lastIndex
     val dailyMax = (s.dailyReviews.maxOfOrNull { it.count } ?: 0).coerceAtLeast(1)
-    val locale = ConfigurationCompat.getLocales(LocalConfiguration.current)[0] ?: Locale.getDefault()
+    val locale = LocalConfiguration.current.locales[0]
     Surface(
         shape = MaterialTheme.shapes.extraLargeIncreased,
         color = MaterialTheme.colorScheme.surfaceContainerLow,

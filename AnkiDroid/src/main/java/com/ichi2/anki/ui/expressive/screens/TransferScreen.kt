@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -87,7 +87,7 @@ internal fun TransferScreen(
                 is ExpressiveTransferUiState.Running,
                 is ExpressiveTransferUiState.SavingExport,
                 -> {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                     StatusText(
                         if (
                             state is ExpressiveTransferUiState.CopyingImport ||
@@ -161,7 +161,7 @@ private fun ImportConfirmation(
     Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(48.dp)) {
         Text(
             if (state.format == ExpressiveImportFormat.COLPKG) {
-                stringResource(R.string.expressive_import_replace)
+                stringResource(R.string.sync_conflict_replace_title)
             } else {
                 TR.actionsImport()
             },

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -536,7 +537,7 @@ class ExpressiveHomeActivityNavigationTest : RobolectricTest() {
                 ExpressiveTransferFiles.createShareIntent(
                     context,
                     ready,
-                    Uri.parse("content://owned/$index"),
+                    "content://owned/$index".toUri(),
                 )
             assertEquals(Intent.ACTION_SEND, share.action)
             assertEquals(ready.mime, share.type)

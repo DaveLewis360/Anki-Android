@@ -46,7 +46,7 @@ class MaintenanceScreenSemanticsTest : RobolectricTest() {
 
         composeRule.onNode(isHeading() and hasText(ExpressiveMaintenanceMode.DATABASE.title(targetContext))).assertExists()
         composeRule.onNodeWithText("Checking cards").assert(announced)
-        composeRule.onNodeWithText(targetContext.getString(R.string.expressive_maintenance_progress_counter, 3, 10)).assert(silent)
+        composeRule.onNodeWithText(targetContext.getString(R.string.preview_progress_bar_text, 3, 10)).assert(silent)
         composeRule.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo(0.3f, 0f..1f))).assertExists()
         composeRule.onNodeWithText(targetContext.getString(R.string.expressive_maintenance_keep_open)).assert(silent)
     }

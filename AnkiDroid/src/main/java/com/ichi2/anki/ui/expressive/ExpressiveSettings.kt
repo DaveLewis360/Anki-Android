@@ -3,6 +3,7 @@
 package com.ichi2.anki.ui.expressive
 
 import android.content.Context
+import androidx.core.content.edit
 
 /** User-visible settings of the expressive UI, persisted in a private prefs file. */
 data class ExpressiveSettings(
@@ -46,19 +47,17 @@ data class ExpressiveSettings(
     }
 
     fun save(context: Context) {
-        context
-            .getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_THEME, themeMode)
-            .putString(KEY_PALETTE, paletteKey)
-            .putBoolean(KEY_DYNAMIC, dynamicColor)
-            .putString(KEY_G_TAP_Q, gestureTapQuestion)
-            .putString(KEY_G_TAP_A, gestureTapAnswer)
-            .putString(KEY_G_SWIPE_L, gestureSwipeLeft)
-            .putString(KEY_G_SWIPE_R, gestureSwipeRight)
-            .putString(KEY_G_DOUBLE, gestureDoubleTap)
-            .putString(KEY_G_LONG, gestureLongPress)
-            .apply()
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit {
+            putString(KEY_THEME, themeMode)
+            putString(KEY_PALETTE, paletteKey)
+            putBoolean(KEY_DYNAMIC, dynamicColor)
+            putString(KEY_G_TAP_Q, gestureTapQuestion)
+            putString(KEY_G_TAP_A, gestureTapAnswer)
+            putString(KEY_G_SWIPE_L, gestureSwipeLeft)
+            putString(KEY_G_SWIPE_R, gestureSwipeRight)
+            putString(KEY_G_DOUBLE, gestureDoubleTap)
+            putString(KEY_G_LONG, gestureLongPress)
+        }
     }
 
     /**

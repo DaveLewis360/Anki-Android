@@ -28,11 +28,13 @@ import com.ichi2.anki.CollectionManager
 import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.CollectionReplacementRecoveryException
 import com.ichi2.anki.ExpressiveRestorePendingException
+import com.ichi2.anki.common.time.TimeManager
 import com.ichi2.anki.libanki.exportAnkiPackage
 import com.ichi2.anki.libanki.exportCardsCsv
 import com.ichi2.anki.libanki.exportNotesCsv
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.observability.undoableOp
+import com.ichi2.utils.openInputStreamSafe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,6 +68,8 @@ internal object ExpressiveExternalImportRequests {
     private const val CLAIMS_KEY = "claimed_request_ids"
     private const val MAX_CLAIMS = 16
 
+    // A MIME type is ASCII and never shown: the root locale keeps the identity the same everywhere.
+    @Suppress("LocaleRootUsage")
     fun identityFor(source: Intent): String? {
         val uri = ExpressiveTransferFiles.extractSingleUri(source) ?: return null
         val fields = listOf("external-import-v1", source.action.orEmpty(), source.type.orEmpty().lowercase(Locale.ROOT), uri.toString())
@@ -74,6 +78,8 @@ internal object ExpressiveExternalImportRequests {
         return "v1_" + Base64.encodeToString(digest, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
+    // The claim holds only once it is on disk: commit's result is the answer, which the KTX edit {} drops.
+    @Suppress("UseKtx")
     @Synchronized
     fun claim(
         context: Context,
@@ -99,6 +105,7 @@ internal object ExpressiveExternalImportRequests {
             ).commit()
     }
 
+    @Suppress("UseKtx")
     @Synchronized
     internal fun clearClaimsForTests(context: Context) {
         check(
@@ -372,7 +379,7 @@ internal object ExpressiveTransferFiles {
                 val root = importRoot(context).apply { mkdirs() }
                 cleanupStale(root)
                 output = createOpaqueFile(root, extension)
-                context.contentResolver.openInputStream(uri)?.use { input ->
+                context.contentResolver.openInputStreamSafe(uri)?.use { input ->
                     FileOutputStream(output).use { stream ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                         var copied = 0L
@@ -472,7 +479,7 @@ internal object ExpressiveTransferFiles {
         prefix: String,
     ): String {
         val safePrefix = sanitizeDisplayName(prefix, "Anki-export").substringBeforeLast('.').ifBlank { "Anki-export" }
-        return "$safePrefix-${System.currentTimeMillis()}.${extensionFor(format)}"
+        return "$safePrefix-${TimeManager.time.intTimeMS()}.${extensionFor(format)}"
     }
 
     suspend fun copyReadyToProvider(
@@ -525,11 +532,14 @@ internal object ExpressiveTransferFiles {
             ExpressiveExportFormat.NOTES_TEXT, ExpressiveExportFormat.CARDS_TEXT -> EXPRESSIVE_TEXT_MIME
         }
 
+    // File extensions are ASCII and never translated: the root locale lowercases them the same everywhere.
+    @Suppress("LocaleRootUsage")
     fun genericImportName(format: ExpressiveImportFormat): String =
         genericImportName(format, if (format == ExpressiveImportFormat.TEXT) "txt" else format.name.lowercase(Locale.ROOT))
 
     fun genericExportName(format: ExpressiveExportFormat): String = "Anki-export.${extensionFor(format)}"
 
+    @Suppress("LocaleRootUsage")
     private fun importExtension(
         format: ExpressiveImportFormat,
         rawName: String?,
@@ -562,6 +572,7 @@ internal object ExpressiveTransferFiles {
             ExpressiveExportFormat.NOTES_TEXT, ExpressiveExportFormat.CARDS_TEXT -> "txt"
         }
 
+    @Suppress("LocaleRootUsage")
     private fun classify(
         name: String?,
         mime: String?,
@@ -644,6 +655,8 @@ internal object ExpressiveTransferFiles {
             candidate.takeIf { candidate == unresolved && candidate.parentFile == canonicalRoot && candidate.isFile }
         }.getOrNull()
 
+    // File modification times come from the real clock, so must the cutoff they are compared with.
+    @Suppress("DirectSystemCurrentTimeMillisUsage")
     private fun cleanupStale(
         root: File,
         activeTokens: Set<String> = emptySet(),

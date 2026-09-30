@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 AnkiDroid M3 Expressive contributors
 package com.ichi2.anki.ui.expressive.screens
 
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ichi2.anki.cardviewer.CardMediaPlayer
 import com.ichi2.anki.cardviewer.SingleCardSide
@@ -78,11 +78,11 @@ class ExpressiveReviewerMediaControllerTest {
             controller.prepare(card, question)
             controller.onPageFinished(question)
             advanceUntilIdle()
-            controller.handleInternalNavigation(Uri.parse("playsound:q:0"), question)
-            controller.handleInternalNavigation(Uri.parse("videoended:"), question)
-            controller.handleInternalNavigation(Uri.parse("videopause:"), question)
-            controller.handleInternalNavigation(Uri.parse("tts-voices:"), question)
-            controller.handleInternalNavigation(Uri.parse("missing-user-action:3"), question)
+            controller.handleInternalNavigation("playsound:q:0".toUri(), question)
+            controller.handleInternalNavigation("videoended:".toUri(), question)
+            controller.handleInternalNavigation("videopause:".toUri(), question)
+            controller.handleInternalNavigation("tts-voices:".toUri(), question)
+            controller.handleInternalNavigation("missing-user-action:3".toUri(), question)
             advanceUntilIdle()
 
             assertThat(resolvedCard, sameInstance(card))
@@ -114,7 +114,7 @@ class ExpressiveReviewerMediaControllerTest {
             controller.close()
             controller.replay()
             controller.setEnabled(true)
-            controller.handleInternalNavigation(Uri.parse("videoended:"), answer)
+            controller.handleInternalNavigation("videoended:".toUri(), answer)
             advanceUntilIdle()
 
             coVerify(exactly = 1) { player.replayAll(SingleCardSide.BACK) }

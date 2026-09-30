@@ -131,7 +131,7 @@ class ThemesTest : RobolectricTest() {
         }
         ExpressiveSettings.load(targetContext).copy(dynamicColor = true).save(targetContext)
 
-        val activity = Robolectric.buildActivity(LauncherSplashActivity::class.java).create().get()
+        val activity = Robolectric.buildActivity(LauncherThemedActivity::class.java).create().get()
 
         val tv = TypedValue()
         activity.theme.resolveAttribute(android.R.attr.windowBackground, tv, true)
@@ -152,7 +152,7 @@ class ThemesTest : RobolectricTest() {
     class ThemedActivity : AnkiActivity()
 
     /** Starts from the launcher splash theme and reads its window style, as the platform may do early. */
-    class LauncherSplashActivity : AnkiActivity() {
+    class LauncherThemedActivity : AnkiActivity() {
         override fun onCreate(savedInstanceState: Bundle?) {
             setTheme(R.style.Theme_Dark_Launcher)
             window.windowStyle
