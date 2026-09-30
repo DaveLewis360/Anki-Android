@@ -617,5 +617,15 @@ opening the system text to speech settings fails">Failed to open text to speech 
         <item quantity="one">%d kept file still could not be added. Free up some storage space and try again.</item>
         <item quantity="other">%d kept files still could not be added. Free up some storage space and try again.</item>
     </plurals>
+
+    <!-- Material 3 Expressive study screen -->
+    <plurals name="expressive_study_cards_left" comment="Subtitle of the study screen: how many cards are left in this study session">
+        <item quantity="one">%d card left</item>
+        <item quantity="other">%d cards left</item>
+    </plurals>
+    <string name="expressive_study_time_on_card" comment="Spoken description of the study screen's timer. %s is the time spent on the current card, for example 1:05">Time on this card: %s</string>
+    <string name="expressive_study_loading" comment="Spoken description of the indicator shown while the next card loads">Loading card…</string>
+    <string name="expressive_study_more_card_actions" maxLength="41" comment="Description of the button that opens the burying and suspending actions for the current card">More card actions</string>
+    <string name="expressive_study_answer_with_interval" comment="Spoken label of an answer button. %1$s is the rating, for example Good, and %2$s is when the card would be shown next, for example 10m">%1$s, %2$s</string>
 </resources>
 

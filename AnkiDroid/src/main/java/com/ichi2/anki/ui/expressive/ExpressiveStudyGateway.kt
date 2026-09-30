@@ -7,15 +7,18 @@ import anki.collection.OpChanges
 import anki.collection.OpChangesWithCount
 import anki.scheduler.CardAnswer.Rating
 import anki.scheduler.UnburyDeckRequest
+import com.ichi2.anki.Flag
 import com.ichi2.anki.collection.CollectionChange
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.UndoStepCounter
 import com.ichi2.anki.libanki.sched.CurrentQueueState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
@@ -77,6 +80,9 @@ interface ExpressiveStudyGateway {
 
     suspend fun currentCard(context: Context): StudyCardUi?
 
+    /** The flags' display names: Anki's translated names, or the ones the user gave them. */
+    suspend fun flagNames(): Map<Flag, String> = Flag.queryDisplayNames()
+
     suspend fun congratulationsInfo(deckId: DeckId): ExpressiveCongratulationsInfo =
         ExpressiveCongratulationsInfo(
             deckId = deckId,
@@ -128,6 +134,20 @@ interface ExpressiveStudyGateway {
 
     suspend fun emptyStudyDeck(deckId: DeckId): OpChanges = throw UnsupportedOperationException("Filtered deck empty is unavailable.")
 }
+
+/**
+ * The flags' display names, or none if they cannot be read: the Study screen's flag button then
+ * steps through the flags instead of listing them. Cancellation is no failure, and propagates.
+ */
+suspend fun ExpressiveStudyGateway.flagNamesOrNone(): Map<Flag, String> =
+    try {
+        flagNames()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Timber.w(e, "could not load the flag names")
+        emptyMap()
+    }
 
 /** Optional production capability that tags writes with one review session's exact initiator. */
 internal interface InitiatedExpressiveStudyGateway {

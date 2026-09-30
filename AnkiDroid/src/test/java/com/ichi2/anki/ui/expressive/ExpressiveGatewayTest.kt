@@ -8,10 +8,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import anki.scheduler.CardAnswer.Rating
+import com.ichi2.anki.Flag
 import com.ichi2.anki.RobolectricTest
 import com.ichi2.anki.libanki.Consts.DEFAULT_DECK_ID
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.sched.CurrentQueueState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
@@ -22,6 +24,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.IOException
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -405,6 +408,39 @@ class ExpressiveGatewayTest : RobolectricTest() {
 
             assertEquals(0, gateway.undoCalls)
             viewModel.viewModelScope.cancel()
+        }
+
+    @Test
+    fun `the flags are named as the user named them`() =
+        runTest {
+            Flag.RED.rename("Leech")
+
+            val names = ExpressiveCollection.flagNamesOrNone()
+
+            assertEquals(Flag.entries.toSet(), names.keys)
+            assertEquals("Leech", names[Flag.RED])
+        }
+
+    @Test
+    fun `flag names that cannot be read leave the flags unnamed`() =
+        runTest {
+            val gateway =
+                object : DelegatingStudyGateway() {
+                    override suspend fun flagNames(): Map<Flag, String> = throw IOException("the collection is closed")
+                }
+
+            assertEquals(emptyMap(), gateway.flagNamesOrNone())
+        }
+
+    @Test
+    fun `reading the flag names stops when the screen is left`() =
+        runTest {
+            val gateway =
+                object : DelegatingStudyGateway() {
+                    override suspend fun flagNames(): Map<Flag, String> = throw CancellationException("the screen was left")
+                }
+
+            assertFailsWith<CancellationException> { gateway.flagNamesOrNone() }
         }
 
     private fun createAccountViewModel(gateway: ExpressiveAccountGateway): ExpressiveAccountViewModel =

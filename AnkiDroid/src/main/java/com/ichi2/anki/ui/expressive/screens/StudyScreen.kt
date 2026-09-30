@@ -8,29 +8,21 @@ import android.net.Uri
 import android.view.KeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
@@ -45,6 +37,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -53,13 +46,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -71,12 +67,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import anki.scheduler.CardAnswer.Rating
 import anki.scheduler.UnburyDeckRequest
+import com.ichi2.anki.Flag
 import com.ichi2.anki.R
 import com.ichi2.anki.common.preferences.sharedPrefs
 import com.ichi2.anki.dialogs.TtsVoicesDialogFragment
 import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.DeckId
+import com.ichi2.anki.libanki.Decks
 import com.ichi2.anki.localizedErrorMessage
 import com.ichi2.anki.preferences.reviewer.ViewerAction
 import com.ichi2.anki.reviewer.BindingMap
@@ -100,7 +98,12 @@ import com.ichi2.anki.ui.expressive.components.AnswerButtons
 import com.ichi2.anki.ui.expressive.components.CardGestureArea
 import com.ichi2.anki.ui.expressive.components.GestureAction
 import com.ichi2.anki.ui.expressive.components.ShowAnswerButton
-import com.ichi2.anki.ui.expressive.components.StudyTopBar
+import com.ichi2.anki.ui.expressive.components.StudyCardActions
+import com.ichi2.anki.ui.expressive.components.StudyLayout
+import com.ichi2.anki.ui.expressive.components.StudyTopAppBar
+import com.ichi2.anki.ui.expressive.components.answerHaptic
+import com.ichi2.anki.ui.expressive.components.rememberStudyActionLabels
+import com.ichi2.anki.ui.expressive.flagNamesOrNone
 import com.ichi2.anki.ui.expressive.ratingFor
 import com.ichi2.anki.ui.expressive.remainingCards
 import com.ichi2.anki.utils.openUrl
@@ -142,8 +145,6 @@ fun StudyScreen(
     val congratulationsInfo by viewModel.congratulationsInfo.collectAsStateWithLifecycle()
 
     var gestureMenu by remember { mutableStateOf(false) }
-    var buryMenu by remember { mutableStateOf(false) }
-    var suspendMenu by remember { mutableStateOf(false) }
     var customStudyInfo by remember { mutableStateOf<ExpressiveCongratulationsInfo?>(null) }
     var unburyInfo by remember { mutableStateOf<ExpressiveCongratulationsInfo?>(null) }
     var composeInputFocused by remember { mutableStateOf(false) }
@@ -359,14 +360,22 @@ fun StudyScreen(
         webInputFocused = false
     }
 
+    val haptics = LocalHapticFeedback.current
+
+    /** Answers by gesture, with the answer buttons' haptic feedback when the answer is taken. */
+    fun gradeByGesture(rating: Rating) {
+        gestureAnswerHaptic(rating, answered = state is StudyUiState.Answered, working = working)?.let(haptics::performHapticFeedback)
+        viewModel.grade(rating)
+    }
+
     fun performGesture(actionKey: String) {
         val qs = currentQueueStateOf(state)
         when (GestureAction.fromKey(actionKey)) {
             GestureAction.SHOW_ANSWER -> viewModel.revealCurrent(typedAnswer)
-            GestureAction.GOOD -> viewModel.grade(Rating.GOOD)
-            GestureAction.HARD -> viewModel.grade(Rating.HARD)
-            GestureAction.AGAIN -> viewModel.grade(Rating.AGAIN)
-            GestureAction.EASY -> viewModel.grade(Rating.EASY)
+            GestureAction.GOOD -> gradeByGesture(Rating.GOOD)
+            GestureAction.HARD -> gradeByGesture(Rating.HARD)
+            GestureAction.AGAIN -> gradeByGesture(Rating.AGAIN)
+            GestureAction.EASY -> gradeByGesture(Rating.EASY)
             GestureAction.UNDO -> viewModel.undo()
             GestureAction.MARK -> viewModel.toggleMark()
             GestureAction.FLAG -> viewModel.cycleFlag()
@@ -475,9 +484,16 @@ fun StudyScreen(
         onDispose { inputHost?.clearReviewerInputHandlers(inputOwner) }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            StudyTopBar(
+    val flagNames by produceState(emptyMap<Flag, String>(), studyGateway) { value = studyGateway.flagNamesOrNone() }
+    val actionLabels = rememberStudyActionLabels()
+    val showsCard = state is StudyUiState.Question || state is StudyUiState.Answered
+
+    StudyLayout(
+        topBar = {
+            StudyTopAppBar(
+                // As in Classic, the deck itself: its parents would push it out of the title.
+                deckName = Decks.basename(deckName),
+                remaining = if (showsCard) state.remainingCards() else null,
                 // Count the card in flight as partial progress so the wave is visible
                 // from the very first question and glides forward on every answer.
                 progress =
@@ -486,289 +502,183 @@ fun StudyScreen(
                     } else {
                         0f
                     },
-                timerSeconds = seconds,
+                timerSeconds = if (showsCard) seconds else null,
+                canUndo = !working && canUndo,
+                canAddNote = !working,
+                onClose = onClose,
+                onUndo = viewModel::undo,
+                onAddNote = onAddNote,
             )
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    deckName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
+        },
+        cardActions = {
+            if (showsCard) {
+                StudyCardActions(
+                    marked = marked,
+                    flag = Flag.fromCode(flag),
+                    flagNames = flagNames,
+                    labels = actionLabels,
+                    enabled = !working,
+                    onReplay = mediaController::replay,
+                    onToggleMark = viewModel::toggleMark,
+                    onSetFlag = { viewModel.setFlag(it.code) },
+                    onEdit = { performGesture(GestureAction.EDIT.key) },
+                    onBuryCard = viewModel::buryCurrent,
+                    onBuryNote = viewModel::buryNote,
+                    onSuspendCard = viewModel::suspendCurrent,
+                    onSuspendNote = viewModel::suspendNote,
                 )
-                TextButton(enabled = !working, onClick = onAddNote) {
-                    Text("Add note")
-                }
-                IconButton(onClick = onClose) {
-                    Icon(painterResource(R.drawable.close_icon), contentDescription = "Close")
-                }
             }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                val qs = currentQueueStateOf(state)
-                StudyActionButton(
-                    iconRes = R.drawable.ic_arrow_u_left_top,
-                    label = "Undo",
-                    enabled = !working && canUndo,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = { viewModel.undo() },
-                )
-                StudyActionButton(
-                    iconRes = R.drawable.ic_play_circle_white,
-                    label = "Replay media",
-                    enabled = !working && qs != null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = mediaController::replay,
-                )
-                StudyActionButton(
-                    iconRes = com.ichi2.anki.R.drawable.ic_star_black_24,
-                    label = "Mark",
-                    enabled = !working && qs != null,
-                    tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = { viewModel.toggleMark() },
-                )
-                Box {
-                    StudyActionButton(
-                        iconRes = com.ichi2.anki.R.drawable.ic_flag_neutral_filled,
-                        label = "Flag",
-                        enabled = !working && qs != null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        onClick = { viewModel.cycleFlag() },
+        },
+        answerControls = {
+            when (val s = state) {
+                is StudyUiState.Question ->
+                    ShowAnswerButton(
+                        enabled = !working && schedulingReady,
+                        onClick = { viewModel.revealCurrent(typedAnswer) },
                     )
-                    // Small colored dot so the flag state stays visible without
-                    // breaking the toolbar's uniform gray icon language.
-                    if (flag > 0) {
-                        Box(
-                            Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 8.dp, end = 8.dp)
-                                .size(8.dp)
-                                .background(flagTint(flag), CircleShape),
-                        )
-                    }
-                }
-                StudyActionButton(
-                    iconRes = com.ichi2.anki.R.drawable.ic_edit_note,
-                    label = "Edit",
-                    enabled = !working && qs != null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = { performGesture(GestureAction.EDIT.key) },
-                )
-                Box {
-                    StudyActionButton(
-                        iconRes = com.ichi2.anki.R.drawable.ic_hide,
-                        label = "Bury",
-                        enabled = !working && qs != null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        onClick = { buryMenu = true },
+                is StudyUiState.Answered ->
+                    AnswerButtons(
+                        intervals = s.card.intervals,
+                        enabled = !working,
+                        onAnswer = { ratingIndex -> viewModel.grade(ratingFor(ratingIndex)) },
                     )
-                    DropdownMenu(expanded = buryMenu, onDismissRequest = { buryMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Bury card") },
-                            onClick = {
-                                buryMenu = false
-                                viewModel.buryCurrent()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Bury note") },
-                            onClick = {
-                                buryMenu = false
-                                viewModel.buryNote()
-                            },
-                        )
-                    }
-                }
-                Box {
-                    StudyActionButton(
-                        iconRes = com.ichi2.anki.R.drawable.round_pause_24,
-                        label = "Suspend",
-                        enabled = !working && qs != null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        onClick = { suspendMenu = true },
-                    )
-                    DropdownMenu(expanded = suspendMenu, onDismissRequest = { suspendMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Suspend card") },
-                            onClick = {
-                                suspendMenu = false
-                                viewModel.suspendCurrent()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Suspend note") },
-                            onClick = {
-                                suspendMenu = false
-                                viewModel.suspendNote()
-                            },
-                        )
-                    }
-                }
+                else -> {}
             }
-            CardGestureArea(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                shouldHandleGesture = {
-                    !composeInputFocused && !webInputFocused && cardWebViewHolder.shouldHandleCardGesture()
-                },
-                gestureKey =
-                    Triple(
-                        currentQueueStateOf(state)?.topCard?.id,
-                        state is StudyUiState.Answered,
-                        rendererGeneration,
-                    ),
-                onTap = {
-                    performGesture(
-                        if (state is StudyUiState.Question) gestures.gestureTapQuestion else gestures.gestureTapAnswer,
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        CardGestureArea(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            shouldHandleGesture = {
+                !composeInputFocused && !webInputFocused && cardWebViewHolder.shouldHandleCardGesture()
+            },
+            gestureKey =
+                Triple(
+                    currentQueueStateOf(state)?.topCard?.id,
+                    state is StudyUiState.Answered,
+                    rendererGeneration,
+                ),
+            onTap = {
+                performGesture(
+                    if (state is StudyUiState.Question) gestures.gestureTapQuestion else gestures.gestureTapAnswer,
+                )
+            },
+            onDoubleTap = { performGesture(gestures.gestureDoubleTap) },
+            onLongPress = { performGesture(gestures.gestureLongPress) },
+            onSwipeLeft = { performGesture(gestures.gestureSwipeLeft) },
+            onSwipeRight = { performGesture(gestures.gestureSwipeRight) },
+        ) {
+            when (val s = state) {
+                is StudyUiState.Loading -> LoadingPane()
+                is StudyUiState.Error -> ErrorPane(s.message, onRetry = viewModel::retry)
+                is StudyUiState.TimeboxReached ->
+                    TimeboxPane(
+                        info = s.info,
+                        onContinue = viewModel::continueAfterTimebox,
+                        onFinish = onClose,
                     )
-                },
-                onDoubleTap = { performGesture(gestures.gestureDoubleTap) },
-                onLongPress = { performGesture(gestures.gestureLongPress) },
-                onSwipeLeft = { performGesture(gestures.gestureSwipeLeft) },
-                onSwipeRight = { performGesture(gestures.gestureSwipeRight) },
-            ) {
-                when (val s = state) {
-                    is StudyUiState.Loading -> LoadingIndicator()
-                    is StudyUiState.Error -> ErrorPane(s.message, onRetry = viewModel::retry)
-                    is StudyUiState.TimeboxReached ->
-                        TimeboxPane(
-                            info = s.info,
-                            onContinue = viewModel::continueAfterTimebox,
-                            onFinish = onClose,
-                        )
-                    is StudyUiState.Finished -> {
-                        val info = congratulationsInfo
-                        if (info == null) {
-                            LoadingIndicator()
-                        } else {
-                            CongratsPane(
-                                info = info,
-                                working = working,
-                                onClose = onClose,
-                                onDeckOptions = { onDeckOptions(info.deckId, info.isFiltered) },
-                                onStudyMore = { customStudyInfo = info },
-                                onUnbury = {
-                                    if (info.haveUserBuried && info.haveSchedBuried) {
-                                        unburyInfo = info
-                                    } else {
-                                        viewModel.unburyFinished(UnburyDeckRequest.Mode.ALL)
-                                    }
-                                },
-                                onRebuild = viewModel::rebuildFinishedDeck,
-                                onEmpty = viewModel::emptyFinishedDeck,
-                            )
-                        }
-                    }
-                    is StudyUiState.Question ->
-                        Column {
-                            val frontHtml =
-                                remember(s.card.frontHtml, cardDark, cardCanvas, onCardCanvas, s.card.typeUseInputTag) {
-                                    expressiveCardHtml(
-                                        rendered = s.card.frontHtml,
-                                        dark = cardDark,
-                                        canvas = cardCanvas,
-                                        onCanvas = onCardCanvas,
-                                        hideTypeInput = s.card.typeUseInputTag,
-                                    )
+                is StudyUiState.Finished -> {
+                    val info = congratulationsInfo
+                    if (info == null) {
+                        LoadingPane()
+                    } else {
+                        CongratsPane(
+                            info = info,
+                            working = working,
+                            onClose = onClose,
+                            onDeckOptions = { onDeckOptions(info.deckId, info.isFiltered) },
+                            onStudyMore = { customStudyInfo = info },
+                            onUnbury = {
+                                if (info.haveUserBuried && info.haveSchedBuried) {
+                                    unburyInfo = info
+                                } else {
+                                    viewModel.unburyFinished(UnburyDeckRequest.Mode.ALL)
                                 }
-                            CardPane(
-                                holder = cardWebViewHolder,
-                                card = s.card.queueState.topCard,
-                                cardId = s.card.queueState.topCard.id,
-                                side = ExpressiveCardSide.QUESTION,
-                                html = frontHtml,
-                                baseUrl = s.card.baseUrl,
-                                autoplay = s.card.autoplay,
-                                rendererGeneration = rendererGeneration,
-                                renderRevision = s.card.renderRevision,
-                                mediaController = mediaController,
-                                motion = cardMotion,
-                                transition = transition.toQuestionKind(),
-                                visibleRenderKey = visibleRenderKey,
-                            )
-                            // Type-answer cards: learner types before revealing.
-                            if (s.card.typeCorrect != null) {
-                                OutlinedTextField(
-                                    value = typedAnswer,
-                                    onValueChange = viewModel::updateTypedAnswer,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp, vertical = 8.dp)
-                                            .onFocusChanged { composeInputFocused = it.isFocused },
-                                    label = { Text("Type answer") },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                    keyboardActions = KeyboardActions(onDone = { viewModel.revealCurrent() }),
-                                    shape = MaterialTheme.shapes.extraLarge,
+                            },
+                            onRebuild = viewModel::rebuildFinishedDeck,
+                            onEmpty = viewModel::emptyFinishedDeck,
+                        )
+                    }
+                }
+                is StudyUiState.Question ->
+                    Column {
+                        val frontHtml =
+                            remember(s.card.frontHtml, cardDark, cardCanvas, onCardCanvas, s.card.typeUseInputTag) {
+                                expressiveCardHtml(
+                                    rendered = s.card.frontHtml,
+                                    dark = cardDark,
+                                    canvas = cardCanvas,
+                                    onCanvas = onCardCanvas,
+                                    hideTypeInput = s.card.typeUseInputTag,
                                 )
-                            }
-                        }
-                    is StudyUiState.Answered -> {
-                        val backHtml =
-                            remember(s.card.backHtml, cardDark, cardCanvas, onCardCanvas) {
-                                expressiveCardHtml(s.card.backHtml, cardDark, cardCanvas, onCardCanvas)
                             }
                         CardPane(
                             holder = cardWebViewHolder,
-                            card = s.card.card.queueState.topCard,
-                            cardId = s.card.card.queueState.topCard.id,
-                            side = ExpressiveCardSide.ANSWER,
-                            html = backHtml,
-                            baseUrl = s.card.card.baseUrl,
-                            autoplay = s.card.card.autoplay,
+                            card = s.card.queueState.topCard,
+                            cardId = s.card.queueState.topCard.id,
+                            side = ExpressiveCardSide.QUESTION,
+                            html = frontHtml,
+                            baseUrl = s.card.baseUrl,
+                            autoplay = s.card.autoplay,
                             rendererGeneration = rendererGeneration,
-                            renderRevision = s.card.card.renderRevision,
+                            renderRevision = s.card.renderRevision,
                             mediaController = mediaController,
                             motion = cardMotion,
-                            transition = CardTransition.ANSWER_REVEAL,
+                            transition = transition.toQuestionKind(),
                             visibleRenderKey = visibleRenderKey,
+                            // The typing field below keeps its height: the card takes the rest.
+                            modifier = Modifier.weight(1f),
                         )
+                        // Type-answer cards: learner types before revealing.
+                        if (s.card.typeCorrect != null) {
+                            OutlinedTextField(
+                                value = typedAnswer,
+                                onValueChange = viewModel::updateTypedAnswer,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                                        .onFocusChanged { composeInputFocused = it.isFocused },
+                                label = { Text(stringResource(R.string.type_answer_hint)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { viewModel.revealCurrent() }),
+                                shape = MaterialTheme.shapes.extraLarge,
+                            )
+                        }
                     }
-                }
-                if (gestureMenu) {
-                    GestureActionMenu(
-                        onAction = { action ->
-                            gestureMenu = false
-                            performGesture(action)
-                        },
-                        onDismiss = { gestureMenu = false },
+                is StudyUiState.Answered -> {
+                    val backHtml =
+                        remember(s.card.backHtml, cardDark, cardCanvas, onCardCanvas) {
+                            expressiveCardHtml(s.card.backHtml, cardDark, cardCanvas, onCardCanvas)
+                        }
+                    CardPane(
+                        holder = cardWebViewHolder,
+                        card = s.card.card.queueState.topCard,
+                        cardId = s.card.card.queueState.topCard.id,
+                        side = ExpressiveCardSide.ANSWER,
+                        html = backHtml,
+                        baseUrl = s.card.card.baseUrl,
+                        autoplay = s.card.card.autoplay,
+                        rendererGeneration = rendererGeneration,
+                        renderRevision = s.card.card.renderRevision,
+                        mediaController = mediaController,
+                        motion = cardMotion,
+                        transition = CardTransition.ANSWER_REVEAL,
+                        visibleRenderKey = visibleRenderKey,
                     )
                 }
             }
-            Box(Modifier.windowInsetsPadding(WindowInsets.navigationBars)) {
-                Column {
-                    when (val s = state) {
-                        is StudyUiState.Question ->
-                            ShowAnswerButton(
-                                enabled = !working && schedulingReady,
-                                onClick = { viewModel.revealCurrent(typedAnswer) },
-                            )
-                        is StudyUiState.Answered ->
-                            AnswerButtons(
-                                intervals = s.card.intervals,
-                                enabled = !working,
-                                onAnswer = { ratingIndex -> viewModel.grade(ratingFor(ratingIndex)) },
-                            )
-                        else -> {}
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
+            if (gestureMenu) {
+                GestureActionMenu(
+                    onAction = { action ->
+                        gestureMenu = false
+                        performGesture(action)
+                    },
+                    onDismiss = { gestureMenu = false },
+                )
             }
         }
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 72.dp),
-        )
     }
 
     customStudyInfo?.let { info ->
@@ -883,34 +793,15 @@ private fun currentQueueStateOf(state: StudyUiState): com.ichi2.anki.libanki.sch
         else -> null
     }
 
-private fun flagTint(flag: Int): Color =
-    when (flag) {
-        1 -> Color(0xFFEF5350)
-        2 -> Color(0xFFFFB74D)
-        3 -> Color(0xFF81C784)
-        4 -> Color(0xFF64B5F6)
-        5 -> Color(0xFFF06292)
-        6 -> Color(0xFF4DD0E1)
-        7 -> Color(0xFF9575CD)
-        else -> Color(0xFF9AA0A6)
-    }
-
-@Composable
-private fun StudyActionButton(
-    iconRes: Int,
-    label: String,
-    enabled: Boolean,
-    tint: Color,
-    onClick: () -> Unit,
-) {
-    IconButton(enabled = enabled, onClick = onClick) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = label,
-            tint = tint.copy(alpha = if (enabled) 1f else 0.4f),
-        )
-    }
-}
+/**
+ * The haptic feedback of answering with [rating] by gesture: the answer buttons' own, if the answer
+ * is taken, which it is only on the answer side, and while no other answer is being saved.
+ */
+internal fun gestureAnswerHaptic(
+    rating: Rating,
+    answered: Boolean,
+    working: Boolean,
+): HapticFeedbackType? = if (answered && !working) answerHaptic(again = rating == Rating.AGAIN) else null
 
 @Composable
 private fun CardPane(
@@ -927,6 +818,7 @@ private fun CardPane(
     motion: CardMotion,
     transition: CardTransition,
     visibleRenderKey: ExpressiveCardRenderKey?,
+    modifier: Modifier = Modifier,
 ) {
     val renderKey =
         ExpressiveCardRenderKey(
@@ -975,7 +867,7 @@ private fun CardPane(
                 holder.render(renderKey)
             },
             modifier =
-                Modifier
+                modifier
                     .fillMaxSize()
                     .padding(horizontal = 20.dp)
                     .graphicsLayer {
@@ -1075,9 +967,13 @@ internal fun cardPaneStep(
     }
 
 @Composable
-private fun LoadingIndicator() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Loading…", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun LoadingPane() {
+    val description = stringResource(R.string.expressive_study_loading)
+    Box(
+        Modifier.fillMaxSize().semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        LoadingIndicator()
     }
 }
 
