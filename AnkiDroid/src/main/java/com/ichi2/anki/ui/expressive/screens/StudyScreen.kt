@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.net.Uri
 import android.view.KeyEvent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +40,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,14 +51,19 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
@@ -95,6 +104,8 @@ import com.ichi2.anki.ui.expressive.components.StudyTopBar
 import com.ichi2.anki.ui.expressive.ratingFor
 import com.ichi2.anki.ui.expressive.remainingCards
 import com.ichi2.anki.utils.openUrl
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 
@@ -157,6 +168,13 @@ fun StudyScreen(
     val coroutineScope = rememberCoroutineScope()
     var rendererGeneration by remember { mutableIntStateOf(0) }
     val webViewHolder = remember { AtomicReference<ExpressiveCardWebViewHolder?>(null) }
+    // The last render the WebView can draw without any of the previous one; the card pane enters on it.
+    var visibleRenderKey by remember { mutableStateOf<ExpressiveCardRenderKey?>(null) }
+    val cardMotion = remember { CardMotion() }
+    // Cards follow the screen's light or dark theme, whatever theme the shared renderer last saw.
+    val cardCanvas = MaterialTheme.colorScheme.background
+    val onCardCanvas = MaterialTheme.colorScheme.onBackground
+    val cardDark = cardCanvas.luminance() < 0.5f
     val appPermissions =
         remember(context, snackbarHostState, coroutineScope) {
             AppPermissions(context) { message ->
@@ -263,6 +281,8 @@ fun StudyScreen(
                 },
                 onInternalNavigation = ::handleInternalNavigation,
                 onPageFinished = { renderKey ->
+                    // A finished page is drawable too, should the commit signal have been missed.
+                    visibleRenderKey = renderKey
                     mediaController.onPageFinished(renderKey)
                     currentSchedulingMutation.value
                         ?.takeIf { command ->
@@ -272,6 +292,7 @@ fun StudyScreen(
                             webViewHolder.get()?.evaluateJavascript(schedulingMutationJavascript(command))
                         }
                 },
+                onPageVisible = { renderKey -> visibleRenderKey = renderKey },
             ).also(webViewHolder::set)
         }
     DisposableEffect(cardWebViewHolder) {
@@ -327,6 +348,8 @@ fun StudyScreen(
         if (state !is StudyUiState.Question && state !is StudyUiState.Answered) {
             cardWebViewHolder.clear()
             mediaController.clear()
+            // A cleared WebView draws nothing: no later render counts as drawable until it reports so.
+            visibleRenderKey = null
         }
     }
     androidx.compose.runtime.LaunchedEffect(
@@ -643,22 +666,30 @@ fun StudyScreen(
                     }
                     is StudyUiState.Question ->
                         Column {
+                            val frontHtml =
+                                remember(s.card.frontHtml, cardDark, cardCanvas, onCardCanvas, s.card.typeUseInputTag) {
+                                    expressiveCardHtml(
+                                        rendered = s.card.frontHtml,
+                                        dark = cardDark,
+                                        canvas = cardCanvas,
+                                        onCanvas = onCardCanvas,
+                                        hideTypeInput = s.card.typeUseInputTag,
+                                    )
+                                }
                             CardPane(
                                 holder = cardWebViewHolder,
                                 card = s.card.queueState.topCard,
                                 cardId = s.card.queueState.topCard.id,
                                 side = ExpressiveCardSide.QUESTION,
-                                html =
-                                    themedCardHtml(
-                                        content = s.card.frontHtml,
-                                        kind = transition.toQuestionKind(),
-                                        hideTypeInput = s.card.typeUseInputTag,
-                                    ),
+                                html = frontHtml,
                                 baseUrl = s.card.baseUrl,
                                 autoplay = s.card.autoplay,
                                 rendererGeneration = rendererGeneration,
                                 renderRevision = s.card.renderRevision,
                                 mediaController = mediaController,
+                                motion = cardMotion,
+                                transition = transition.toQuestionKind(),
+                                visibleRenderKey = visibleRenderKey,
                             )
                             // Type-answer cards: learner types before revealing.
                             if (s.card.typeCorrect != null) {
@@ -678,19 +709,27 @@ fun StudyScreen(
                                 )
                             }
                         }
-                    is StudyUiState.Answered ->
+                    is StudyUiState.Answered -> {
+                        val backHtml =
+                            remember(s.card.backHtml, cardDark, cardCanvas, onCardCanvas) {
+                                expressiveCardHtml(s.card.backHtml, cardDark, cardCanvas, onCardCanvas)
+                            }
                         CardPane(
                             holder = cardWebViewHolder,
                             card = s.card.card.queueState.topCard,
                             cardId = s.card.card.queueState.topCard.id,
                             side = ExpressiveCardSide.ANSWER,
-                            html = themedCardHtml(s.card.backHtml, CardTransition.ANSWER_REVEAL),
+                            html = backHtml,
                             baseUrl = s.card.card.baseUrl,
                             autoplay = s.card.card.autoplay,
                             rendererGeneration = rendererGeneration,
                             renderRevision = s.card.card.renderRevision,
                             mediaController = mediaController,
+                            motion = cardMotion,
+                            transition = CardTransition.ANSWER_REVEAL,
+                            visibleRenderKey = visibleRenderKey,
                         )
+                    }
                 }
                 if (gestureMenu) {
                     GestureActionMenu(
@@ -885,6 +924,9 @@ private fun CardPane(
     rendererGeneration: Int,
     renderRevision: Long,
     mediaController: ExpressiveReviewerMediaController,
+    motion: CardMotion,
+    transition: CardTransition,
+    visibleRenderKey: ExpressiveCardRenderKey?,
 ) {
     val renderKey =
         ExpressiveCardRenderKey(
@@ -895,6 +937,35 @@ private fun CardPane(
             html = html,
             renderRevision = renderRevision,
         )
+    val visible = visibleRenderKey == renderKey
+    val motionScheme = MaterialTheme.motionScheme
+    val density = LocalDensity.current
+    val towardsEnd = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
+    LaunchedEffect(renderKey, visible) {
+        val spatial = motionScheme.defaultSpatialSpec<Float>()
+        val effects = motionScheme.defaultEffectsSpec<Float>()
+        val animationsOff = coroutineContext[MotionDurationScale]?.scaleFactor == 0f
+        when (cardPaneStep(side, visible, motion.hidden, animationsOff)) {
+            CardPaneStep.ENTER -> {
+                val (fromX, fromY) =
+                    with(density) {
+                        when (transition) {
+                            CardTransition.QUESTION_FORWARD -> towardsEnd * CARD_SLIDE_DISTANCE.toPx() to 0f
+                            CardTransition.QUESTION_BACK -> -towardsEnd * CARD_SLIDE_DISTANCE.toPx() to 0f
+                            else -> 0f to CARD_RISE_DISTANCE.toPx()
+                        }
+                    }
+                motion.enter(fromX, fromY, spatial, effects)
+            }
+            CardPaneStep.SETTLE -> motion.settle(spatial, effects)
+            CardPaneStep.HIDE_UNTIL_VISIBLE -> {
+                // Whatever the WebView still shows fades out, a fade interrupted by a quick reveal included.
+                launch { motion.leave(motionScheme.fastEffectsSpec()) }
+                delay(CARD_VISIBLE_FALLBACK_MILLIS)
+                motion.settle(spatial, effects)
+            }
+        }
+    }
     androidx.compose.runtime.key(holder) {
         AndroidView(
             factory = { holder.webView },
@@ -906,81 +977,102 @@ private fun CardPane(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 20.dp)
+                    .graphicsLayer {
+                        alpha = motion.alpha.value
+                        translationX = motion.offsetX.value
+                        translationY = motion.offsetY.value
+                    },
         )
     }
 }
 
+/** How far a new question slides in after an answer, toward the reading direction or against it after Again. */
+private val CARD_SLIDE_DISTANCE = 56.dp
+
+/** How far the first question of a session rises in. */
+private val CARD_RISE_DISTANCE = 24.dp
+
+/** How long the pane waits for a render to become drawable before it shows the WebView anyway. */
+private const val CARD_VISIBLE_FALLBACK_MILLIS = 1_500L
+
 /**
- * Injects a theme-adaptive style block into the rendered card HTML.
- *
- * The stock `flashcard.css` hard-codes a black background with white text, which
- * ignores the expressive theme; the override below (placed after the notetype CSS)
- * re-colors the page from MaterialTheme so light/dark/palettes/dynamic color all apply.
- *
- * The enter animation runs as CSS keyframes INSIDE the WebView, so the content is
- * already animating on the very first painted frame — no async race with the
- * WebView's own loading, which is what made container-level animation glitch.
+ * The card pane's move from one document to the next, on the theme's motion springs. Nothing is
+ * animated inside the card: the card on screen leaves as a new question starts loading, and the
+ * question enters once the WebView can draw it without any content of the previous card. An answer
+ * replaces its question in place (see [cardPaneStep]).
  */
-@Composable
-private fun themedCardHtml(
-    content: String,
-    kind: CardTransition,
-    hideTypeInput: Boolean = false,
-): String {
-    val bg = MaterialTheme.colorScheme.background
-    val fg = MaterialTheme.colorScheme.onBackground
-    val bgHex = "#%06X".format(0xFFFFFF and bg.toArgb())
-    val fgHex = "#%06X".format(0xFFFFFF and fg.toArgb())
-    val typeInputHide =
-        if (hideTypeInput) {
-            "#typeans { display: none !important; }"
-        } else {
-            ""
+@Stable
+private class CardMotion {
+    val alpha = Animatable(1f)
+    val offsetX = Animatable(0f)
+    val offsetY = Animatable(0f)
+
+    /** Whether a document left and its successor has not been shown yet. */
+    var hidden = false
+        private set
+
+    suspend fun leave(effects: FiniteAnimationSpec<Float>) {
+        hidden = true
+        alpha.animateTo(0f, effects)
+    }
+
+    suspend fun enter(
+        fromX: Float,
+        fromY: Float,
+        spatial: FiniteAnimationSpec<Float>,
+        effects: FiniteAnimationSpec<Float>,
+    ) {
+        offsetX.snapTo(fromX)
+        offsetY.snapTo(fromY)
+        settle(spatial, effects)
+    }
+
+    suspend fun settle(
+        spatial: FiniteAnimationSpec<Float>,
+        effects: FiniteAnimationSpec<Float>,
+    ) {
+        hidden = false
+        coroutineScope {
+            launch { alpha.animateTo(1f, effects) }
+            launch { offsetX.animateTo(0f, spatial) }
+            launch { offsetY.animateTo(0f, spatial) }
         }
-    val contentAnimation =
-        when (kind) {
-            CardTransition.QUESTION_RISE -> "#content { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
-            CardTransition.QUESTION_FORWARD -> "#content { animation: ankiSlideForward 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
-            CardTransition.QUESTION_BACK -> "#content { animation: ankiSlideBack 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
-            // Answer reveal: the question part stays still, only the hr and
-            // everything after it animate in. Works with default templates where
-            // FrontSide, hr#answer and the answer are siblings.
-            CardTransition.ANSWER_REVEAL ->
-                "#answer { animation: ankiFade 300ms cubic-bezier(0.2, 0, 0, 1) both; }" +
-                    "#answer ~ * { animation: ankiRise 320ms cubic-bezier(0.2, 0, 0, 1) both; }"
-        }
-    val fallbackScript =
-        if (kind == CardTransition.ANSWER_REVEAL) {
-            // Exotic templates may not have hr#answer: animate the whole content instead
-            "<script>(function(){var a=document.getElementById('answer');" +
-                "var c=document.getElementById('content');" +
-                "if(c&&!a){c.style.animation='ankiRise 320ms cubic-bezier(0.2,0,0,1) both';}})();</script>"
-        } else {
-            ""
-        }
-    val override =
-        "<style id=\"expressive-theme\">" +
-            "html, body { background-color: $bgHex !important; }" +
-            "body, #content, #qa, .card { color: $fgHex !important; background-color: transparent !important; }" +
-            "img { max-width: 100%; height: auto; }" +
-            typeInputHide +
-            "@keyframes ankiRise { from { opacity: 0; transform: translateY(24px); } " +
-            "to { opacity: 1; transform: translateY(0); } }" +
-            "@keyframes ankiFade { from { opacity: 0; } to { opacity: 1; } }" +
-            "@keyframes ankiSlideForward { from { opacity: 0; transform: translateX(56px); } " +
-            "to { opacity: 1; transform: translateX(0); } }" +
-            "@keyframes ankiSlideBack { from { opacity: 0; transform: translateX(-56px); } " +
-            "to { opacity: 1; transform: translateX(0); } }" +
-            contentAnimation +
-            "</style>" +
-            fallbackScript
-    return if (content.contains("</head>", ignoreCase = true)) {
-        content.replaceFirst(Regex("</head>", RegexOption.IGNORE_CASE), "$override</head>")
-    } else {
-        content + override
     }
 }
+
+/** What the card pane does when its render, or whether that render can be drawn, changes. */
+internal enum class CardPaneStep {
+    /** Slide and fade the drawable question in. */
+    ENTER,
+
+    /** Come to rest, visible, from wherever the pane is. */
+    SETTLE,
+
+    /** Hide what the WebView still shows until this document can be drawn; show the pane after a while regardless. */
+    HIDE_UNTIL_VISIBLE,
+}
+
+/**
+ * The card pane's next step for a document on [side]: whether it can be [visible]ly drawn yet,
+ * whether the pane is [hidden] after a document left, and whether system [animationsOff].
+ */
+internal fun cardPaneStep(
+    side: ExpressiveCardSide,
+    visible: Boolean,
+    hidden: Boolean,
+    animationsOff: Boolean,
+): CardPaneStep =
+    when {
+        // Without animations, the WebView swaps documents in place: nothing hides, nothing slides.
+        animationsOff -> CardPaneStep.SETTLE
+        visible -> if (side == ExpressiveCardSide.QUESTION) CardPaneStep.ENTER else CardPaneStep.SETTLE
+        // A new question hides the previous card while it loads. The answer keeps the question in
+        // place until its document replaces it, unless the question itself never appeared: then the
+        // WebView would still show the card before.
+        side == ExpressiveCardSide.QUESTION || hidden -> CardPaneStep.HIDE_UNTIL_VISIBLE
+        else -> CardPaneStep.SETTLE
+    }
 
 @Composable
 private fun LoadingIndicator() {

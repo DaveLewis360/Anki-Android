@@ -247,6 +247,37 @@ class ExpressiveCardWebViewTest {
     }
 
     @Test
+    fun `only the current render is reported drawable, once`() {
+        val webView = mock(WebView::class.java)
+        val first = renderKey(cardId = 1)
+        val second = renderKey(cardId = 2)
+        val firstUrl = expressiveDocumentUrl(first.baseUrl, 1)
+        val secondUrl = expressiveDocumentUrl(second.baseUrl, 2)
+        val visible = mutableListOf<ExpressiveCardRenderKey>()
+        val client =
+            ExpressiveCardWebViewClient(
+                onOpenExternal = {},
+                onInternalNavigation = { _, _ -> },
+                onMainFrameError = {},
+                onPageVisible = { visible += it },
+            )
+
+        client.beginRender(1, first, firstUrl)
+        client.onPageStarted(webView, firstUrl, null)
+        client.beginRender(2, second, secondUrl)
+        // The first document commits after the second render began: it must not reveal the pane.
+        client.onPageCommitVisible(webView, firstUrl)
+        // A commit before the second document started loading belongs to no current document.
+        client.onPageCommitVisible(webView, secondUrl)
+        client.onPageStarted(webView, secondUrl, null)
+        client.onPageCommitVisible(webView, secondUrl)
+        client.onPageCommitVisible(webView, secondUrl)
+        client.onPageFinished(webView, secondUrl)
+
+        assertThat(visible, equalTo(listOf(second)))
+    }
+
+    @Test
     fun `render HTML binds every static internal command to its render token`() {
         val html =
             "<html><head></head><body>" +

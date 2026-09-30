@@ -323,6 +323,7 @@ internal fun createExpressiveCardWebViewHolder(
     onLocalResourceError: (Uri) -> Unit = {},
     onInternalNavigation: (Uri, ExpressiveCardRenderKey) -> Unit = { _, _ -> },
     onPageFinished: (ExpressiveCardRenderKey) -> Unit = {},
+    onPageVisible: (ExpressiveCardRenderKey) -> Unit = {},
 ): ExpressiveCardWebViewHolder {
     val webView = WebView(context)
     lateinit var client: ExpressiveCardWebViewClient
@@ -347,6 +348,7 @@ internal fun createExpressiveCardWebViewHolder(
                 )
                 onPageFinished(key)
             },
+            onPageVisible = onPageVisible,
             interceptLocalResource = resourceHandler::shouldInterceptRequest,
         )
     client.setOnRenderProcessGoneListener { crashedWebView ->
@@ -398,6 +400,7 @@ internal class ExpressiveCardWebViewClient(
     private val onMainFrameError: (String) -> Unit,
     private val onLocalResourceError: (Uri) -> Unit = {},
     private val onPageFinished: (ExpressiveCardRenderKey) -> Unit = {},
+    private val onPageVisible: (ExpressiveCardRenderKey) -> Unit = {},
     private val interceptLocalResource: (WebResourceRequest) -> WebResourceResponse? = { null },
 ) : SafeWebViewClient() {
     private data class PendingRender(
@@ -405,6 +408,7 @@ internal class ExpressiveCardWebViewClient(
         val key: ExpressiveCardRenderKey,
         val documentUrl: String,
         val started: Boolean = false,
+        val visible: Boolean = false,
         val finished: Boolean = false,
     )
 
@@ -460,6 +464,21 @@ internal class ExpressiveCardWebViewClient(
     ) {
         val render = pendingRender ?: return
         if (url == render.documentUrl) pendingRender = render.copy(started = true)
+    }
+
+    /**
+     * The current render can now be drawn without any content of the previous one, which is when
+     * the card pane may show it.
+     */
+    override fun onPageCommitVisible(
+        view: WebView?,
+        url: String?,
+    ) {
+        val render = pendingRender ?: return
+        if (render.started && !render.visible && url == render.documentUrl) {
+            pendingRender = render.copy(visible = true)
+            onPageVisible(render.key)
+        }
     }
 
     override fun onPageFinished(
