@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -322,12 +323,13 @@ private fun GestureSettingRow(
     currentKey: String,
     onSelect: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(label) },
         trailingContent = {
             Text(
-                GestureAction.fromKey(currentKey).label,
+                GestureAction.fromKey(currentKey).label(context),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -361,7 +363,7 @@ private fun GestureSettingRow(
                                 },
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text(action.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(action.label(context), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }

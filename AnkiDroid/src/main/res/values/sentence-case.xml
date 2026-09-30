@@ -92,4 +92,7 @@ undoActionUndone()
     <string name="sentence_answer_hard" maxLength="41">Answer hard</string>
     <string name="sentence_answer_good" maxLength="41">Answer good</string>
     <string name="sentence_copy_to_clipboard">Copy to clipboard</string>
+    <string name="sentence_manually_buried_cards">Manually buried cards</string>
+    <string name="sentence_buried_siblings">Buried siblings</string>
+    <string name="sentence_all_buried_cards">All buried cards</string>
 </resources>

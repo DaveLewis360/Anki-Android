@@ -329,6 +329,9 @@ object ExpressiveCollection :
                 secsUntilNextLearn = info.secsUntilNextLearn,
                 haveUserBuried = info.haveUserBuried,
                 haveSchedBuried = info.haveSchedBuried,
+                reviewLimitReached = info.reviewRemaining,
+                newLimitReached = info.newRemaining,
+                learnRemaining = info.learnRemaining,
             )
         }
 

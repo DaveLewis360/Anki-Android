@@ -44,6 +44,12 @@ data class ExpressiveCongratulationsInfo(
     val secsUntilNextLearn: Int,
     val haveUserBuried: Boolean,
     val haveSchedBuried: Boolean,
+    /** More reviews are due today than the deck's daily limit allows. */
+    val reviewLimitReached: Boolean = false,
+    /** More new cards are waiting than the deck's daily limit allows. */
+    val newLimitReached: Boolean = false,
+    /** The learning cards still due later today. */
+    val learnRemaining: Int = 0,
 )
 
 sealed interface UndoReviewResult {

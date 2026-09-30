@@ -163,7 +163,9 @@ internal fun schedulingMutationJavascript(command: ExpressiveSchedulingMutationC
           };
           try {
             if (!globalThis.anki || typeof globalThis.anki.mutateNextCardStates !== 'function') {
-              throw new Error('The scheduling mutation runtime is unavailable');
+              // The app's own runtime is missing: nothing the deck's author could fix, so no error to show them.
+              signal('state-mutation-error', '');
+              return;
             }
             const userMutation = new Function(
               'states',

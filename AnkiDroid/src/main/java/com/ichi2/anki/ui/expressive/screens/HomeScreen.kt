@@ -16,12 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -40,12 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import anki.scheduler.CustomStudyRequest.Cram.CramKind
 import com.ichi2.anki.R
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.ui.expressive.ExpressiveCollection
-import com.ichi2.anki.ui.expressive.ExpressiveCustomStudyAction
-import com.ichi2.anki.ui.expressive.ExpressiveCustomStudyDefaults
 import com.ichi2.anki.ui.expressive.ExpressiveDeckDeletePreview
 import com.ichi2.anki.ui.expressive.ExpressiveDeckGateway
 import com.ichi2.anki.ui.expressive.ExpressiveMaintenanceMode
@@ -434,210 +429,6 @@ private data class DeleteCandidate(
     val preview: ExpressiveDeckDeletePreview,
 )
 
-private enum class CustomStudyMode(
-    val label: String,
-) {
-    EXTEND_NEW("Increase today's new card limit"),
-    EXTEND_REVIEW("Increase today's review limit"),
-    FORGOTTEN("Review forgotten cards"),
-    AHEAD("Review ahead"),
-    PREVIEW("Preview new cards"),
-    CRAM("Study by card state or tag"),
-}
-
-private val cramKinds =
-    listOf(
-        CramKind.CRAM_KIND_NEW to "New cards only",
-        CramKind.CRAM_KIND_DUE to "Due cards only",
-        CramKind.CRAM_KIND_REVIEW to "All review cards in random order",
-        CramKind.CRAM_KIND_ALL to "All cards in random order",
-    )
-
-@Composable
-internal fun CustomStudyDialog(
-    deckId: DeckId,
-    deckName: String,
-    deckGateway: ExpressiveDeckGateway,
-    onDismiss: () -> Unit,
-    onDone: (sessionDeckId: DeckId?) -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var defaults by remember { mutableStateOf<ExpressiveCustomStudyDefaults?>(null) }
-    var modeName by rememberSaveable(deckId) { mutableStateOf(CustomStudyMode.EXTEND_NEW.name) }
-    val mode = CustomStudyMode.valueOf(modeName)
-    var amount by rememberSaveable(deckId) { mutableStateOf("") }
-    var includeTags by rememberSaveable(deckId) { mutableStateOf("") }
-    var excludeTags by rememberSaveable(deckId) { mutableStateOf("") }
-    var cramKindName by rememberSaveable(deckId) { mutableStateOf(CramKind.CRAM_KIND_NEW.name) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(deckId) {
-        try {
-            defaults = deckGateway.customStudyDefaults(deckId)
-        } catch (failure: CancellationException) {
-            throw failure
-        } catch (failure: Exception) {
-            error = failure.message ?: "Custom Study defaults could not be loaded."
-        }
-    }
-    LaunchedEffect(mode, defaults) {
-        amount =
-            when (mode) {
-                CustomStudyMode.EXTEND_NEW -> defaults?.extendNew?.toString().orEmpty()
-                CustomStudyMode.EXTEND_REVIEW -> defaults?.extendReview?.toString().orEmpty()
-                CustomStudyMode.FORGOTTEN,
-                CustomStudyMode.AHEAD,
-                CustomStudyMode.PREVIEW,
-                -> "1"
-                CustomStudyMode.CRAM -> "100"
-            }
-    }
-
-    val parsedAmount = amount.toIntOrNull()
-    val canSubmit = defaults != null && parsedAmount != null && parsedAmount != 0 && !busy
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Custom study") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                item {
-                    Text(
-                        deckName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (defaults == null && error == null) {
-                    item { CircularProgressIndicator() }
-                }
-                error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-                if (defaults != null) {
-                    items(CustomStudyMode.entries) { candidate ->
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = mode == candidate, onClick = { modeName = candidate.name })
-                            Text(candidate.label, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    item {
-                        defaults?.let { loaded ->
-                            val availability =
-                                when (mode) {
-                                    CustomStudyMode.EXTEND_NEW ->
-                                        "Available: ${loaded.availableNew} (${loaded.availableNewInChildren} in subdecks)"
-                                    CustomStudyMode.EXTEND_REVIEW ->
-                                        "Available: ${loaded.availableReview} (${loaded.availableReviewInChildren} in subdecks)"
-                                    else -> null
-                                }
-                            availability?.let {
-                                Text(
-                                    text = it,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        OutlinedTextField(
-                            value = amount,
-                            onValueChange = { value ->
-                                amount =
-                                    value.filterIndexed { index, character ->
-                                        val signAtStart = character == '-' && index == 0
-                                        val signedMode =
-                                            mode == CustomStudyMode.EXTEND_NEW ||
-                                                mode == CustomStudyMode.EXTEND_REVIEW
-                                        character.isDigit() || (signAtStart && signedMode)
-                                    }
-                            },
-                            label = {
-                                Text(
-                                    if (
-                                        mode == CustomStudyMode.FORGOTTEN ||
-                                        mode == CustomStudyMode.AHEAD ||
-                                        mode == CustomStudyMode.PREVIEW
-                                    ) {
-                                        "Days"
-                                    } else {
-                                        "Cards"
-                                    },
-                                )
-                            },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (mode == CustomStudyMode.CRAM) {
-                        items(cramKinds) { (kind, label) ->
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = cramKindName == kind.name, onClick = { cramKindName = kind.name })
-                                Text(label, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        item {
-                            OutlinedTextField(
-                                value = includeTags,
-                                onValueChange = { includeTags = it },
-                                label = { Text("Include tags (comma-separated)") },
-                                supportingText = { Text("Known tags: ${defaults?.tags?.take(8)?.joinToString().orEmpty()}") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            OutlinedTextField(
-                                value = excludeTags,
-                                onValueChange = { excludeTags = it },
-                                label = { Text("Exclude tags (comma-separated)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = canSubmit,
-                onClick = {
-                    val count = parsedAmount ?: return@TextButton
-                    busy = true
-                    error = null
-                    scope.launch {
-                        try {
-                            val action =
-                                when (mode) {
-                                    CustomStudyMode.EXTEND_NEW -> ExpressiveCustomStudyAction.ExtendNew(count)
-                                    CustomStudyMode.EXTEND_REVIEW -> ExpressiveCustomStudyAction.ExtendReview(count)
-                                    CustomStudyMode.FORGOTTEN -> ExpressiveCustomStudyAction.Forgotten(count)
-                                    CustomStudyMode.AHEAD -> ExpressiveCustomStudyAction.ReviewAhead(count)
-                                    CustomStudyMode.PREVIEW -> ExpressiveCustomStudyAction.PreviewNew(count)
-                                    CustomStudyMode.CRAM ->
-                                        ExpressiveCustomStudyAction.Cram(
-                                            amount = count,
-                                            kind = CramKind.valueOf(cramKindName),
-                                            includeTags = includeTags.asTagList(),
-                                            excludeTags = excludeTags.asTagList(),
-                                        )
-                                }
-                            val result = deckGateway.customStudy(deckId, action)
-                            onDone(result.sessionDeckId)
-                        } catch (failure: CancellationException) {
-                            throw failure
-                        } catch (failure: Exception) {
-                            error = failure.message ?: "Custom Study could not be created."
-                        } finally {
-                            busy = false
-                        }
-                    }
-                },
-            ) { Text(if (busy) "Working…" else "Start") }
-        },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
 @Composable
 private fun DeckContextMenu(
     deck: UiDeck,
@@ -763,10 +554,3 @@ private fun List<UiDeck>.countAll(): Int = sumOf { 1 + it.children.countAll() }
 
 private fun List<UiDeck>.findDeck(did: DeckId): UiDeck? =
     firstOrNull { it.did == did } ?: firstNotNullOfOrNull { it.children.findDeck(did) }
-
-private fun String.asTagList(): List<String> =
-    split(',')
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .distinct()
-        .take(100)

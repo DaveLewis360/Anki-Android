@@ -627,5 +627,35 @@ opening the system text to speech settings fails">Failed to open text to speech 
     <string name="expressive_study_loading" comment="Spoken description of the indicator shown while the next card loads">Loading card…</string>
     <string name="expressive_study_more_card_actions" maxLength="41" comment="Description of the button that opens the burying and suspending actions for the current card">More card actions</string>
     <string name="expressive_study_answer_with_interval" comment="Spoken label of an answer button. %1$s is the rating, for example Good, and %2$s is when the card would be shown next, for example 10m">%1$s, %2$s</string>
+    <string name="expressive_study_back_to_decks" maxLength="41" comment="Button on the study screen once a deck is finished: goes back to the list of decks">Back to decks</string>
+    <string name="expressive_study_error_title" comment="Heading of the study screen when studying cannot go on; the reason follows below it">Something went wrong</string>
+    <string name="expressive_study_card_renderer_error" comment="Message when the card could not be displayed. %s is the technical reason">The card could not be shown: %s</string>
+    <string name="expressive_study_tts_voices_unavailable">Text-to-speech voices can’t be opened here</string>
+    <string name="expressive_study_unsupported_card_signal" comment="Message when a card template asks the study screen for a feature it does not have">This card asked for a study screen feature that isn’t supported</string>
+    <string name="expressive_study_custom_scheduling_failed" comment="Message when the deck’s custom scheduling code failed: the card is scheduled as usual">Custom scheduling failed; the usual intervals apply</string>
+    <string name="expressive_study_custom_scheduling_failed_detail" comment="Message when the deck’s custom scheduling code failed. %s is the error the code reported">Custom scheduling failed; the usual intervals apply: %s</string>
+    <string name="expressive_study_custom_scheduling_timed_out" comment="Message when the deck’s custom scheduling code did not finish in time: the card is scheduled as usual">Custom scheduling took too long; the usual intervals apply</string>
+    <string name="expressive_study_custom_study_not_opened">The custom study session was created but could not be opened</string>
+    <string name="expressive_study_error_select_deck">Couldn’t open the deck</string>
+    <string name="expressive_study_error_not_started">The study session hasn’t started yet</string>
+    <string name="expressive_study_error_reload">Couldn’t reload the card after editing</string>
+    <string name="expressive_study_error_load_card">Couldn’t load the card</string>
+    <string name="expressive_study_error_restore_answer">Couldn’t restore the card’s answer</string>
+    <string name="expressive_study_error_reveal">Couldn’t show the answer</string>
+    <string name="expressive_study_error_answer">Couldn’t save the answer</string>
+    <string name="expressive_study_answer_not_undoable">Answer saved, but it can’t be undone</string>
+    <string name="expressive_study_error_next_card">Answer saved, but the next card couldn’t be loaded</string>
+    <string name="expressive_study_error_next_card_detail" comment="%s is the reason the next card could not be loaded">Answer saved, but the next card couldn’t be loaded: %s</string>
+    <string name="expressive_study_error_mark">Couldn’t mark the note</string>
+    <string name="expressive_study_error_flag">Couldn’t flag the card</string>
+    <string name="expressive_study_undo_unavailable">This review can no longer be undone</string>
+    <string name="expressive_study_error_undo">Couldn’t undo the review</string>
+    <string name="expressive_study_error_operation">Couldn’t complete the action</string>
+    <string name="expressive_study_error_refresh">Couldn’t refresh the study session</string>
+    <string name="expressive_gesture_none" maxLength="41" comment="Gesture setting: the gesture does nothing">No action</string>
+    <string name="expressive_gesture_action_menu" maxLength="41" comment="Gesture setting: the gesture opens a menu of card actions">Action menu</string>
+    <string name="expressive_custom_study_defaults_failed">Couldn’t load the custom study options</string>
+    <string name="expressive_custom_study_failed">Couldn’t create the custom study session</string>
+    <string name="expressive_custom_study_tags_hint" comment="Below the tags field of custom study. %s lists some of the collection’s tags, for example: french, verbs">Separate tags with commas, for example: %s</string>
 </resources>
 

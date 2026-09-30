@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import anki.scheduler.CardAnswer.Rating
 import com.ichi2.anki.Flag
+import com.ichi2.anki.R
 import com.ichi2.anki.RobolectricTest
 import com.ichi2.anki.libanki.Consts.DEFAULT_DECK_ID
 import com.ichi2.anki.libanki.DeckId
@@ -19,6 +20,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
+import net.ankiweb.rsdroid.BackendException
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -199,7 +201,11 @@ class ExpressiveGatewayTest : RobolectricTest() {
             advanceUntilIdle()
 
             assertEquals(0, gateway.currentCardCalls)
-            assertEquals("select failed", assertIs<StudyUiState.Error>(viewModel.state.value).message)
+            assertEquals(
+                StudyMessage.Resource(R.string.expressive_study_error_select_deck),
+                assertIs<StudyUiState.Error>(viewModel.state.value).message,
+                "the app's own words, not the gateway's English",
+            )
             assertFalse(viewModel.working.value)
 
             viewModel.retry()
@@ -376,7 +382,8 @@ class ExpressiveGatewayTest : RobolectricTest() {
             runCurrent()
 
             val error = assertIs<StudyUiState.Error>(viewModel.state.value)
-            assertTrue(error.message.startsWith("Answer saved"))
+            // The failure's English stays in the log: the learner reads the app's words.
+            assertEquals(StudyMessage.Resource(R.string.expressive_study_error_next_card), error.message)
             assertTrue(viewModel.canUndo.value)
 
             viewModel.undo()
@@ -386,6 +393,24 @@ class ExpressiveGatewayTest : RobolectricTest() {
             assertEquals(originalCardId, question.card.queueState.topCard.id)
             assertFalse(viewModel.canUndo.value)
             assertFalse(viewModel.working.value)
+            viewModel.viewModelScope.cancel()
+        }
+
+    @Test
+    fun `a backend failure to load the next card is told in the backend's words`() =
+        runTest {
+            addBasicNote("front", "back")
+            val gateway = PostAnswerLoadFailureGateway { BackendException("La carte suivante manque") }
+            val viewModel = createViewModel(gateway)
+            loadAnswered(viewModel)
+
+            viewModel.grade(Rating.GOOD)
+            runCurrent()
+
+            assertEquals(
+                StudyMessage.Resource(R.string.expressive_study_error_next_card_detail, listOf("La carte suivante manque")),
+                assertIs<StudyUiState.Error>(viewModel.state.value).message,
+            )
             viewModel.viewModelScope.cancel()
         }
 
@@ -607,7 +632,9 @@ class ExpressiveGatewayTest : RobolectricTest() {
         }
     }
 
-    private class PostAnswerLoadFailureGateway : DelegatingStudyGateway() {
+    private class PostAnswerLoadFailureGateway(
+        private val failure: () -> Exception = { IllegalStateException("next card failed") },
+    ) : DelegatingStudyGateway() {
         private var failLoad = false
 
         override suspend fun answer(
@@ -616,7 +643,7 @@ class ExpressiveGatewayTest : RobolectricTest() {
         ): ReviewAnswerResult = ExpressiveCollection.answer(state, rating).also { failLoad = true }
 
         override suspend fun currentCard(context: Context): StudyCardUi? {
-            if (failLoad) error("next card failed")
+            if (failLoad) throw failure()
             return ExpressiveCollection.currentCard(context)
         }
 

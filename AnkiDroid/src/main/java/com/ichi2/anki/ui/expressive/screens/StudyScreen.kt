@@ -8,26 +8,17 @@ import android.net.Uri
 import android.view.KeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.focus.onFocusChanged
@@ -54,11 +44,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -91,6 +77,7 @@ import com.ichi2.anki.ui.expressive.ExpressiveEditorResult
 import com.ichi2.anki.ui.expressive.ExpressiveReviewerInputHost
 import com.ichi2.anki.ui.expressive.ExpressiveSettings
 import com.ichi2.anki.ui.expressive.ExpressiveStudyGateway
+import com.ichi2.anki.ui.expressive.StudyMessage
 import com.ichi2.anki.ui.expressive.StudyUiState
 import com.ichi2.anki.ui.expressive.StudyViewModel
 import com.ichi2.anki.ui.expressive.UiDeck
@@ -155,7 +142,7 @@ fun StudyScreen(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     androidx.compose.runtime.LaunchedEffect(viewModel) {
-        viewModel.actionErrors.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.actionErrors.collect { snackbarHostState.showSnackbar(it.resolve(context)) }
     }
     androidx.compose.runtime.LaunchedEffect(editorResult?.requestId) {
         val result = editorResult ?: return@LaunchedEffect
@@ -188,7 +175,9 @@ fun StudyScreen(
                 javascriptEvaluator = { script -> webViewHolder.get()?.evaluateJavascript(script) },
                 scope = coroutineScope,
                 onMediaError = { filename ->
-                    coroutineScope.launch { snackbarHostState.showSnackbar("Media not found: $filename") }
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(context.getString(R.string.card_viewer_could_not_find_image, filename))
+                    }
                 },
                 onTtsError = { error ->
                     coroutineScope.launch { snackbarHostState.showSnackbar(error.localizedErrorMessage(context)) }
@@ -196,7 +185,9 @@ fun StudyScreen(
                 onShowTtsVoices = {
                     val activity = context.findFragmentActivity()
                     if (activity == null) {
-                        coroutineScope.launch { snackbarHostState.showSnackbar("TTS voices are unavailable") }
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_tts_voices_unavailable))
+                        }
                     } else {
                         TtsVoicesDialogFragment().show(activity.supportFragmentManager, "ttsVoices")
                     }
@@ -232,7 +223,7 @@ fun StudyScreen(
                 if (!unsupportedSignalShown) {
                     unsupportedSignalShown = true
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar("This card requested an unsupported reviewer signal")
+                        snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_unsupported_card_signal))
                     }
                 }
             }
@@ -246,10 +237,7 @@ fun StudyScreen(
                 viewModel.failSchedulingMutation(
                     cardId = renderKey.cardId,
                     renderRevision = renderKey.renderRevision,
-                    message =
-                        internalNavigationPayload(uri)
-                            .take(500)
-                            .ifBlank { "Custom scheduling failed; using the original intervals" },
+                    message = customSchedulingFailure(internalNavigationPayload(uri)),
                 )
             else -> mediaController.handleInternalNavigation(uri, renderKey)
         }
@@ -270,14 +258,18 @@ fun StudyScreen(
                         viewModel.failSchedulingMutation(
                             cardId = command.cardId,
                             renderRevision = command.renderRevision,
-                            message = "Card renderer failed before custom scheduling completed",
+                            message = StudyMessage.Resource(R.string.expressive_study_custom_scheduling_failed),
                         )
                     }
-                    coroutineScope.launch { snackbarHostState.showSnackbar("Card renderer error: $message") }
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_card_renderer_error, message))
+                    }
                 },
                 onLocalResourceError = { uri ->
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Card resource not found: ${uri.lastPathSegment.orEmpty()}")
+                        snackbarHostState.showSnackbar(
+                            context.getString(R.string.card_viewer_could_not_find_image, uri.lastPathSegment.orEmpty()),
+                        )
                     }
                 },
                 onInternalNavigation = ::handleInternalNavigation,
@@ -570,9 +562,9 @@ fun StudyScreen(
         ) {
             when (val s = state) {
                 is StudyUiState.Loading -> LoadingPane()
-                is StudyUiState.Error -> ErrorPane(s.message, onRetry = viewModel::retry)
+                is StudyUiState.Error -> ErrorPane(s.message.resolve(context), onRetry = viewModel::retry)
                 is StudyUiState.TimeboxReached ->
-                    TimeboxPane(
+                    TimeboxDialog(
                         info = s.info,
                         onContinue = viewModel::continueAfterTimebox,
                         onFinish = onClose,
@@ -695,9 +687,7 @@ fun StudyScreen(
                     coroutineScope.launch {
                         val session = deckGateway.loadDecks().findDeckById(sessionDeckId)
                         if (session == null) {
-                            snackbarHostState.showSnackbar(
-                                "The Custom Study session was created but could not be opened.",
-                            )
+                            snackbarHostState.showSnackbar(context.getString(R.string.expressive_study_custom_study_not_opened))
                         } else {
                             onOpenStudy(session.did, session.name)
                         }
@@ -708,35 +698,12 @@ fun StudyScreen(
     }
 
     unburyInfo?.let {
-        AlertDialog(
-            onDismissRequest = { unburyInfo = null },
-            title = { Text("Unbury cards") },
-            text = {
-                Column {
-                    TextButton(
-                        onClick = {
-                            unburyInfo = null
-                            viewModel.unburyFinished(UnburyDeckRequest.Mode.USER_ONLY)
-                        },
-                    ) { Text("Manually buried cards") }
-                    TextButton(
-                        onClick = {
-                            unburyInfo = null
-                            viewModel.unburyFinished(UnburyDeckRequest.Mode.SCHED_ONLY)
-                        },
-                    ) { Text("Buried siblings") }
-                    TextButton(
-                        onClick = {
-                            unburyInfo = null
-                            viewModel.unburyFinished(UnburyDeckRequest.Mode.ALL)
-                        },
-                    ) { Text("All buried cards") }
-                }
+        UnburyDialog(
+            onUnbury = { mode ->
+                unburyInfo = null
+                viewModel.unburyFinished(mode)
             },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { unburyInfo = null }) { Text("Cancel") }
-            },
+            onDismiss = { unburyInfo = null },
         )
     }
 
@@ -802,6 +769,23 @@ internal fun gestureAnswerHaptic(
     answered: Boolean,
     working: Boolean,
 ): HapticFeedbackType? = if (answered && !working) answerHaptic(again = rating == Rating.AGAIN) else null
+
+/** The longest error of a deck's custom scheduling code the learner is shown. */
+private const val MAX_CUSTOM_SCHEDULING_ERROR_LENGTH = 500
+
+/**
+ * The message when a deck's custom scheduling code failed: the error the code reported, which helps
+ * its author, if it reported one. The app's own failures report none.
+ */
+internal fun customSchedulingFailure(reportedError: String): StudyMessage =
+    if (reportedError.isBlank()) {
+        StudyMessage.Resource(R.string.expressive_study_custom_scheduling_failed)
+    } else {
+        StudyMessage.Resource(
+            R.string.expressive_study_custom_scheduling_failed_detail,
+            listOf(reportedError.take(MAX_CUSTOM_SCHEDULING_ERROR_LENGTH)),
+        )
+    }
 
 @Composable
 private fun CardPane(
@@ -965,149 +949,3 @@ internal fun cardPaneStep(
         side == ExpressiveCardSide.QUESTION || hidden -> CardPaneStep.HIDE_UNTIL_VISIBLE
         else -> CardPaneStep.SETTLE
     }
-
-@Composable
-private fun LoadingPane() {
-    val description = stringResource(R.string.expressive_study_loading)
-    Box(
-        Modifier.fillMaxSize().semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        LoadingIndicator()
-    }
-}
-
-@Composable
-private fun ErrorPane(
-    message: String,
-    onRetry: () -> Unit,
-) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            "Couldn't load the card:\n$message",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onRetry) {
-            Text("Retry")
-        }
-    }
-}
-
-@Composable
-private fun TimeboxPane(
-    info: com.ichi2.anki.ui.expressive.ExpressiveTimeboxInfo,
-    onContinue: () -> Unit,
-    onFinish: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text("Timebox reached") },
-        text = {
-            Text("You reviewed ${info.reviews} cards in ${info.seconds / 60} minutes.")
-        },
-        confirmButton = {
-            TextButton(onClick = onContinue) { Text("Continue") }
-        },
-        dismissButton = {
-            TextButton(onClick = onFinish) { Text("Finish") }
-        },
-    )
-}
-
-@Composable
-private fun CongratsPane(
-    info: ExpressiveCongratulationsInfo,
-    working: Boolean,
-    onClose: () -> Unit,
-    onDeckOptions: () -> Unit,
-    onStudyMore: () -> Unit,
-    onUnbury: () -> Unit,
-    onRebuild: () -> Unit,
-    onEmpty: () -> Unit,
-) {
-    val dueMessage =
-        when {
-            info.secsUntilNextLearn >= 86_400 -> "This deck is finished for now."
-            info.secsUntilNextLearn < 60 -> "The next learning card is due in ${info.secsUntilNextLearn} seconds."
-            info.secsUntilNextLearn < 3_600 ->
-                "The next learning card is due in ${info.secsUntilNextLearn / 60} minutes."
-            else -> "The next learning card is due in ${info.secsUntilNextLearn / 3_600} hours."
-        }
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text("🎉", style = MaterialTheme.typography.displayMedium)
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "Well done!",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            dueMessage,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(20.dp))
-        if (info.haveUserBuried || info.haveSchedBuried) {
-            Button(enabled = !working, onClick = onUnbury) { Text("Unbury cards") }
-        }
-        if (info.isFiltered) {
-            Button(enabled = !working, onClick = onRebuild) { Text("Rebuild filtered deck") }
-            TextButton(enabled = !working, onClick = onEmpty) { Text("Empty filtered deck") }
-        } else {
-            Button(enabled = !working, onClick = onStudyMore) { Text("Study more") }
-        }
-        TextButton(enabled = !working, onClick = onDeckOptions) { Text("Deck options") }
-        Surface(
-            onClick = onClose,
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ) {
-            Text(
-                "Back to decks",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
-            )
-        }
-    }
-}
-
-/** Quick action menu opened by the long-press gesture. */
-@Composable
-private fun GestureActionMenu(
-    onAction: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
-        listOf(
-            GestureAction.FLAG,
-            GestureAction.EDIT,
-            GestureAction.BURY,
-            GestureAction.SUSPEND,
-            GestureAction.UNDO,
-        ).forEach { action ->
-            DropdownMenuItem(
-                text = { Text(action.label) },
-                onClick = { onAction(action.key) },
-            )
-        }
-    }
-}

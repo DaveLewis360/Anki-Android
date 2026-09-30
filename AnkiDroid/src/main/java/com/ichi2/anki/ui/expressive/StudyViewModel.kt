@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import anki.frontend.SetSchedulingStatesRequest
 import anki.scheduler.CardAnswer.Rating
 import anki.scheduler.UnburyDeckRequest
+import com.ichi2.anki.R
 import com.ichi2.anki.collection.CollectionChange
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.DeckId
@@ -35,6 +36,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import net.ankiweb.rsdroid.BackendException
+import timber.log.Timber
 import java.util.UUID
 
 /**
@@ -61,8 +64,8 @@ class StudyViewModel(
     private val _canUndo = MutableStateFlow(false)
     val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
 
-    private val _actionErrors = Channel<String>(Channel.BUFFERED)
-    val actionErrors: Flow<String> = _actionErrors.receiveAsFlow()
+    private val _actionErrors = Channel<StudyMessage>(Channel.BUFFERED)
+    val actionErrors: Flow<StudyMessage> = _actionErrors.receiveAsFlow()
 
     private val _stopMedia = Channel<Unit>(Channel.CONFLATED)
     val stopMedia: Flow<Unit> = _stopMedia.receiveAsFlow()
@@ -166,7 +169,7 @@ class StudyViewModel(
         updateUndoAvailability()
     }
 
-    private fun reportActionError(message: String) {
+    private fun reportActionError(message: StudyMessage) {
         _actionErrors.trySend(message)
     }
 
@@ -258,7 +261,7 @@ class StudyViewModel(
             } catch (e: Exception) {
                 if (generation == sessionGeneration) {
                     retryNeedsDeckSelection = true
-                    _state.value = StudyUiState.Error(e.message ?: "Failed to select deck")
+                    _state.value = StudyUiState.Error(StudyMessage.of(e, R.string.expressive_study_error_select_deck))
                 }
             } finally {
                 finishWorking(operation)
@@ -276,7 +279,7 @@ class StudyViewModel(
         invalidateUndoHistory()
         val deckId = lastDeckId
         if (deckId == null) {
-            reportActionError("The study session is not initialized")
+            reportActionError(StudyMessage.Resource(R.string.expressive_study_error_not_started))
             return
         }
         val operation = beginWorking()
@@ -298,7 +301,7 @@ class StudyViewModel(
                 } catch (e: Exception) {
                     if (generation == sessionGeneration) {
                         retryNeedsDeckSelection = reloadRequired
-                        _state.value = StudyUiState.Error(e.message ?: "Failed to reload after editing")
+                        _state.value = StudyUiState.Error(StudyMessage.of(e, R.string.expressive_study_error_reload))
                     }
                 }
             }
@@ -327,7 +330,7 @@ class StudyViewModel(
                 throw e
             } catch (e: Exception) {
                 if (generation == sessionGeneration) {
-                    _state.value = StudyUiState.Error(e.message ?: "Failed to load card")
+                    _state.value = StudyUiState.Error(StudyMessage.of(e, R.string.expressive_study_error_load_card))
                 }
             } finally {
                 finishWorking(operation)
@@ -432,7 +435,7 @@ class StudyViewModel(
                 failSchedulingMutation(
                     cardId = command.cardId,
                     renderRevision = command.renderRevision,
-                    message = "Custom scheduling timed out; using the original intervals",
+                    message = StudyMessage.Resource(R.string.expressive_study_custom_scheduling_timed_out),
                 )
             }
     }
@@ -456,14 +459,16 @@ class StudyViewModel(
             current.card.queueState.states = request.states
             finishSchedulingMutation(command)
         } catch (failure: Exception) {
-            failSchedulingMutation(cardId, renderRevision, failure.message ?: "Custom scheduling failed")
+            // The detail is for the log: a mismatched or stale reply is the app's concern, not the deck author's.
+            Timber.w(failure, "custom scheduling returned an unusable reply")
+            failSchedulingMutation(cardId, renderRevision, StudyMessage.Resource(R.string.expressive_study_custom_scheduling_failed))
         }
     }
 
     fun failSchedulingMutation(
         cardId: CardId,
         renderRevision: Long,
-        message: String,
+        message: StudyMessage,
     ) {
         val command = currentSchedulingMutation(cardId, renderRevision) ?: return
         reportActionError(message)
@@ -501,7 +506,7 @@ class StudyViewModel(
                 if (generation == sessionGeneration) {
                     pendingAnsweredRestore = false
                     _schedulingReady.value = true
-                    _state.value = StudyUiState.Error(failure.message ?: "Failed to restore the card answer")
+                    _state.value = StudyUiState.Error(StudyMessage.of(failure, R.string.expressive_study_error_restore_answer))
                 }
             } finally {
                 finishWorking(operation)
@@ -550,7 +555,7 @@ class StudyViewModel(
                 throw e
             } catch (e: Exception) {
                 if (generation == sessionGeneration) {
-                    _state.value = StudyUiState.Error(e.message ?: "Failed to reveal card")
+                    _state.value = StudyUiState.Error(StudyMessage.of(e, R.string.expressive_study_error_reveal))
                 }
             } finally {
                 finishWorking(operation)
@@ -575,13 +580,13 @@ class StudyViewModel(
                                 result.undoToken?.let {
                                     undoTokens.addLast(it)
                                     updateUndoAvailability()
-                                } ?: reportActionError("Answer saved, but it cannot be undone")
+                                } ?: reportActionError(StudyMessage.Resource(R.string.expressive_study_answer_not_undoable))
                                 result.leech?.let { leech ->
                                     reportActionError(
                                         if (leech.suspended) {
-                                            "Card was a leech and has been suspended"
+                                            StudyMessage.Resource(R.string.leech_suspend_notification)
                                         } else {
-                                            "Card was a leech"
+                                            StudyMessage.Resource(R.string.leech_notification)
                                         },
                                     )
                                 }
@@ -592,7 +597,7 @@ class StudyViewModel(
                     throw e
                 } catch (e: Exception) {
                     if (generation == sessionGeneration) {
-                        reportActionError(e.message ?: "Failed to answer card")
+                        reportActionError(StudyMessage.of(e, R.string.expressive_study_error_answer))
                     }
                     return@launchSerialized
                 }
@@ -606,8 +611,9 @@ class StudyViewModel(
                     if (generation == sessionGeneration) {
                         _state.value =
                             StudyUiState.Error(
-                                e.message?.let { "Answer saved, but the next card could not be loaded: $it" }
-                                    ?: "Answer saved, but the next card could not be loaded",
+                                (e as? BackendException)?.message?.let {
+                                    StudyMessage.Resource(R.string.expressive_study_error_next_card_detail, listOf(it))
+                                } ?: StudyMessage.of(e, R.string.expressive_study_error_next_card),
                             )
                     }
                 }
@@ -631,7 +637,7 @@ class StudyViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (generation == sessionGeneration) reportActionError(e.message ?: "Failed to mark card")
+                if (generation == sessionGeneration) reportActionError(StudyMessage.of(e, R.string.expressive_study_error_mark))
             } finally {
                 finishWorking(operation)
             }
@@ -652,7 +658,7 @@ class StudyViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (generation == sessionGeneration) reportActionError(e.message ?: "Failed to flag card")
+                if (generation == sessionGeneration) reportActionError(StudyMessage.of(e, R.string.expressive_study_error_flag))
             } finally {
                 finishWorking(operation)
             }
@@ -673,7 +679,7 @@ class StudyViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (generation == sessionGeneration) reportActionError(e.message ?: "Failed to flag card")
+                if (generation == sessionGeneration) reportActionError(StudyMessage.of(e, R.string.expressive_study_error_flag))
             } finally {
                 finishWorking(operation)
             }
@@ -701,14 +707,14 @@ class StudyViewModel(
                     UndoReviewResult.NotOwnedOrNoLongerTop -> {
                         if (generation == sessionGeneration) {
                             invalidateUndoHistory()
-                            reportActionError("This review can no longer be undone")
+                            reportActionError(StudyMessage.Resource(R.string.expressive_study_undo_unavailable))
                         }
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (generation == sessionGeneration) reportActionError(e.message ?: "Failed to undo review")
+                if (generation == sessionGeneration) reportActionError(StudyMessage.of(e, R.string.expressive_study_error_undo))
             } finally {
                 finishWorking(operation)
             }
@@ -763,7 +769,7 @@ class StudyViewModel(
                 throw failure
             } catch (failure: Exception) {
                 if (generation == sessionGeneration) {
-                    reportActionError(failure.message ?: "Study operation failed")
+                    reportActionError(StudyMessage.of(failure, R.string.expressive_study_error_operation))
                 }
             } finally {
                 finishWorking(operation)
@@ -786,7 +792,7 @@ class StudyViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (generation == sessionGeneration) reportActionError(e.message ?: "Study operation failed")
+                if (generation == sessionGeneration) reportActionError(StudyMessage.of(e, R.string.expressive_study_error_operation))
             } finally {
                 finishWorking(operation)
             }
@@ -835,7 +841,7 @@ class StudyViewModel(
                     } catch (e: Exception) {
                         if (generation == sessionGeneration) {
                             pendingReload = true
-                            _state.value = StudyUiState.Error(e.message ?: "Failed to refresh study session")
+                            _state.value = StudyUiState.Error(StudyMessage.of(e, R.string.expressive_study_error_refresh))
                         }
                     } finally {
                         finishWorking(operation)

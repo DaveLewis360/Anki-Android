@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -24,6 +25,12 @@ import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.Flag
 import com.ichi2.anki.R
 import com.ichi2.anki.ScreenshotTest
+import com.ichi2.anki.libanki.DeckId
+import com.ichi2.anki.ui.expressive.ExpressiveCollection
+import com.ichi2.anki.ui.expressive.ExpressiveCongratulationsInfo
+import com.ichi2.anki.ui.expressive.ExpressiveCustomStudyDefaults
+import com.ichi2.anki.ui.expressive.ExpressiveDeckGateway
+import com.ichi2.anki.ui.expressive.ExpressiveTimeboxInfo
 import com.ichi2.anki.ui.expressive.components.AnswerButtons
 import com.ichi2.anki.ui.expressive.components.ShowAnswerButton
 import com.ichi2.anki.ui.expressive.components.StudyCardActions
@@ -138,6 +145,69 @@ class StudyScreenshotTest : ScreenshotTest() {
         }
     }
 
+    /** A finished deck: what is left for today, and the ways to study on. */
+    @Test
+    fun finishedDeck() {
+        assumeExpressiveTheme()
+        capture("study_finished") { PaneSample { CongratsSample(finishedDeck) } }
+    }
+
+    @Test
+    fun finishedDeckAtDoubleFontSize() {
+        assumeExpressiveTheme()
+        RuntimeEnvironment.setFontScale(2f)
+        capture("study_finished_font_2x") { PaneSample { CongratsSample(finishedDeck) } }
+    }
+
+    /** A finished filtered deck, with buried cards: unbury, rebuild, or empty it. */
+    @Test
+    fun finishedFilteredDeck() {
+        assumeExpressiveTheme()
+        capture("study_finished_filtered") { PaneSample { CongratsSample(finishedFilteredDeck) } }
+    }
+
+    @Test
+    fun error() {
+        assumeExpressiveTheme()
+        capture("study_error") { PaneSample { ErrorPane("The collection could not be opened", onRetry = {}) } }
+    }
+
+    @Test
+    fun timebox() {
+        assumeExpressiveTheme()
+        capture("study_timebox") {
+            PaneSample { TimeboxDialog(ExpressiveTimeboxInfo(seconds = 1_200, reviews = 42), onContinue = {}, onFinish = {}) }
+        }
+    }
+
+    @Test
+    fun unbury() {
+        assumeExpressiveTheme()
+        capture("study_unbury") {
+            PaneSample {
+                CongratsSample(finishedFilteredDeck)
+                UnburyDialog(onUnbury = {}, onDismiss = {})
+            }
+        }
+    }
+
+    /**
+     * Custom study, from a finished deck. Tablet only: on the phone, Robolectric never settles a
+     * dialog that holds a text field (a bare OutlinedTextField in an AlertDialog reproduces it), so
+     * the phone layout is left to the G1 device check.
+     */
+    @Test
+    fun customStudy() {
+        assumeExpressiveTheme()
+        assumeTrue("Robolectric does not settle a dialog with a text field on the phone", device == ScreenshotTest.DeviceConfig.TABLET)
+        capture("study_custom_study") {
+            PaneSample {
+                CongratsSample(finishedDeck)
+                CustomStudyDialog(deckId = 1, deckName = "Vocabulary", deckGateway = SampleDeckGateway, onDismiss = {}, onDone = {})
+            }
+        }
+    }
+
     /** The Expressive theme has light and dark modes only; the Classic plain, black, and e-ink themes do not apply. */
     private fun assumeExpressiveTheme() = assumeTrue(theme == ScreenshotTest.ThemeConfig.LIGHT || theme == ScreenshotTest.ThemeConfig.DARK)
 
@@ -238,4 +308,79 @@ private fun SampleCard(
             Text("the dog", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
         }
     }
+}
+
+/** A deck finished for now: two learning cards later today, the next in 5 minutes, and more reviews than today's limit. */
+private val finishedDeck =
+    ExpressiveCongratulationsInfo(
+        deckId = 1,
+        isFiltered = false,
+        secsUntilNextLearn = 300,
+        haveUserBuried = false,
+        haveSchedBuried = false,
+        reviewLimitReached = true,
+        learnRemaining = 2,
+    )
+
+private val finishedFilteredDeck =
+    ExpressiveCongratulationsInfo(
+        deckId = 1,
+        isFiltered = true,
+        secsUntilNextLearn = Int.MAX_VALUE,
+        haveUserBuried = true,
+        haveSchedBuried = true,
+    )
+
+/** The Study screen between cards: the app bar over a pane in the card's place, and no controls. */
+@Composable
+private fun PaneSample(pane: @Composable () -> Unit) {
+    StudyLayout(
+        topBar = {
+            StudyTopAppBar(
+                deckName = "Vocabulary",
+                remaining = null,
+                progress = 0.97f,
+                timerSeconds = null,
+                canUndo = true,
+                canAddNote = true,
+                onClose = {},
+                onUndo = {},
+                onAddNote = {},
+                movingWave = false,
+            )
+        },
+        cardActions = {},
+        answerControls = {},
+        snackbarHost = {},
+    ) { padding ->
+        Box(Modifier.padding(padding)) { pane() }
+    }
+}
+
+@Composable
+private fun CongratsSample(info: ExpressiveCongratulationsInfo) {
+    CongratsPane(
+        info = info,
+        working = false,
+        onClose = {},
+        onDeckOptions = {},
+        onStudyMore = {},
+        onUnbury = {},
+        onRebuild = {},
+        onEmpty = {},
+    )
+}
+
+/** Custom study's options for a deck with 12 more new cards than today's limit. */
+private object SampleDeckGateway : ExpressiveDeckGateway by ExpressiveCollection {
+    override suspend fun customStudyDefaults(did: DeckId): ExpressiveCustomStudyDefaults =
+        ExpressiveCustomStudyDefaults(
+            extendNew = 10,
+            extendReview = 50,
+            availableNew = 12,
+            availableNewInChildren = 0,
+            availableReview = 0,
+            availableReviewInChildren = 0,
+            tags = emptyList(),
+        )
 }
