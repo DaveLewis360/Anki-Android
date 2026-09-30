@@ -84,6 +84,8 @@ import org.junit.rules.TestName
 import org.robolectric.Robolectric
 import org.robolectric.Shadows
 import org.robolectric.android.controller.ActivityController
+import org.robolectric.annotation.GraphicsMode
+import org.robolectric.config.ConfigurationRegistry
 import org.robolectric.junit.rules.TimeoutRule
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.shadows.ShadowLog
@@ -436,6 +438,10 @@ open class RobolectricTest :
             println("not annotated with junit, not setting up backend")
             return
         }
+        if (usesNativeGraphicsBesideOtherTests()) {
+            println("native graphics outside a screenshot run, not setting up backend")
+            return
+        }
         try {
             RustBackendLoader.ensureSetup()
         } catch (e: UnsatisfiedLinkError) {
@@ -456,6 +462,17 @@ open class RobolectricTest :
         }
     }
 
+    /**
+     * Whether this test draws with native graphics among tests that do not. A native library loads
+     * into one class loader per process, and Robolectric gives native-graphics tests a sandbox of
+     * their own: loading the backend there would keep the tests after it, in the default sandbox,
+     * from using it. Such tests go without the backend. A screenshot run draws every test natively,
+     * in one sandbox, so there the backend loads as usual.
+     */
+    private fun usesNativeGraphicsBesideOtherTests(): Boolean =
+        ConfigurationRegistry.get(GraphicsMode.Mode::class.java) == GraphicsMode.Mode.NATIVE &&
+            System.getProperty(SCREENSHOT_RUN_PROPERTY) == null
+
     override fun setupTestDispatcher(dispatcher: TestDispatcher) {
         super.setupTestDispatcher(dispatcher)
         ioDispatcher = dispatcher
@@ -470,6 +487,9 @@ open class RobolectricTest :
 
 private fun getLatestAlertDialog(): AlertDialog =
     assertNotNull(ShadowDialog.getLatestDialog() as? AlertDialog, "A dialog should be displayed")
+
+/** Set by the build (`-Pscreenshot`) only when the screenshot tests run, and they alone. */
+private const val SCREENSHOT_RUN_PROPERTY = "screenshot.theme"
 
 private class RobolectricSyncCredentialStorage : SyncCredentialStorage {
     private var credential: SyncCredentialSnapshot? = null
